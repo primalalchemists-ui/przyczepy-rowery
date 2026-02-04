@@ -1,34 +1,26 @@
 import { withPayload } from '@payloadcms/next/withPayload'
 import redirects from './redirects.js'
 
-const NEXT_PUBLIC_SERVER_URL =
-  process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : process.env.__NEXT_PRIVATE_ORIGIN || 'http://localhost:3000'
+const PUBLIC_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000'
+const publicHostname = new URL(PUBLIC_URL).hostname
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ✅ TO JEST WŁAŚNIE “WYŁĄCZENIE TS NA CZAS BUILDA”
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  // ✅ opcjonalnie (polecam na czas deployu)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
-  // ✅ polecam na Railway / Docker (łatwiej odpalać)
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   output: 'standalone',
 
   images: {
     remotePatterns: [
-      ...[NEXT_PUBLIC_SERVER_URL].map((item) => {
-        const url = new URL(item)
-        return {
-          hostname: url.hostname,
-          protocol: url.protocol.replace(':', ''),
-        }
-      }),
+      {
+        protocol: 'https',
+        hostname: publicHostname,
+      },
+      // opcjonalnie: jak w dev lecisz po http
+      {
+        protocol: 'http',
+        hostname: publicHostname,
+      },
     ],
   },
 
