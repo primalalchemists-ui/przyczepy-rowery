@@ -1,9 +1,6 @@
 import { withPayload } from '@payloadcms/next/withPayload'
 import redirects from './redirects.js'
 
-const PUBLIC_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000'
-const publicHostname = new URL(PUBLIC_URL).hostname
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: { ignoreBuildErrors: true },
@@ -12,14 +9,22 @@ const nextConfig = {
 
   images: {
     remotePatterns: [
+      // ✅ Twoja domena (prod)
       {
         protocol: 'https',
-        hostname: publicHostname,
+        hostname: 'przyczepy-production.up.railway.app',
       },
-      // opcjonalnie: jak w dev lecisz po http
+
+      // ✅ localhost (dev)
       {
         protocol: 'http',
-        hostname: publicHostname,
+        hostname: 'localhost',
+      },
+
+      // ✅ Supabase Storage (public)
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
       },
     ],
   },
