@@ -1,31 +1,37 @@
-version: '3'
-
 services:
-  payload:
-    image: node:18-alpine
+  postgres:
+    image: postgres:16
+    container_name: caravans-postgres
+    restart: unless-stopped
     ports:
-      - '3000:3000'
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: caravans
+      POSTGRES_USER: caravans
+      POSTGRES_PASSWORD: caravans
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  payload:
+    image: node:20-alpine
+    container_name: caravans-payload
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    working_dir: /home/node/app
     volumes:
       - .:/home/node/app
       - node_modules:/home/node/app/node_modules
-    working_dir: /home/node/app/
-    command: sh -c "yarn install && yarn dev"
-    depends_on:
-      - mongo
     env_file:
       - .env
-
-  mongo:
-    image: mongo:latest
-    ports:
-      - '27017:27017'
-    command:
-      - --storageEngine=wiredTiger
-    volumes:
-      - data:/data/db
-    logging:
-      driver: none
+    depends_on:
+      - postgres
+    command: >
+      sh -c "corepack enable &&
+      corepack prepare pnpm@10.0.0 --activate &&
+      pnpm install &&
+      pnpm dev"
 
 volumes:
-  data:
   node_modules:
+  pgdata:

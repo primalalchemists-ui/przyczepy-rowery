@@ -5,7 +5,7 @@ const Card: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...pr
   return (
     <div
       data-slot="card"
-      className={cn('bg-card text-card-foreground rounded-lg border shadow-sm', className)}
+      className={cn('bg-gradient-to-b from-white/90 to-slate-50/70 backdrop-blur-sm text-card-foreground rounded-lg border shadow-sm', className)}
       {...props}
     />
   )

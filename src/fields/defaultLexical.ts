@@ -1,3 +1,4 @@
+// src/fields/defaultLexical.ts
 import type { TextFieldSingleValidation } from 'payload'
 import {
   BoldFeature,
@@ -15,8 +16,15 @@ export const defaultLexical = lexicalEditor({
     UnderlineFeature(),
     BoldFeature(),
     ItalicFeature(),
+
     LinkFeature({
-      enabledCollections: ['pages', 'posts'],
+      // ✅ TYLKO kolekcje, które realnie istnieją w Twoim projekcie:
+      // (masz /przyczepy/[slug], więc wewnętrzne linki do przyczep mają sens)
+      enabledCollections: ['przyczepy'],
+
+      // Zostawiamy Twoją logikę custom URL:
+      // - internal link => url nie jest potrzebny
+      // - external link => url jest wymagany
       fields: ({ defaultFields }) => {
         const defaultFieldsWithoutUrl = defaultFields.filter((field) => {
           if ('name' in field && field.name === 'url') return false
@@ -35,7 +43,7 @@ export const defaultLexical = lexicalEditor({
             required: true,
             validate: ((value, options) => {
               if ((options?.siblingData as LinkFields)?.linkType === 'internal') {
-                return true // no validation needed, as no url should exist for internal links
+                return true
               }
               return value ? true : 'URL is required'
             }) as TextFieldSingleValidation,

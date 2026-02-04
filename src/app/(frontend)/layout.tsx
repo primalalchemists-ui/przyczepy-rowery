@@ -1,53 +1,36 @@
-import type { Metadata } from 'next'
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-import { cn } from '@/utilities/ui'
-import { GeistMono } from 'geist/font/mono'
-import { GeistSans } from 'geist/font/sans'
-import React from 'react'
+// src/app/(frontend)/layout.tsx
+import type { ReactNode } from 'react'
+import { getSiteSettings, getBookingSettings } from '@/lib/payload'
+import { SiteHeader } from '@/components/site-header'
+import { SiteFooter } from '@/components/site-footer'
+import "./globals.css"
 
-import { AdminBar } from '@/components/AdminBar'
-import { Footer } from '@/Footer/Component'
-import { Header } from '@/Header/Component'
-import { Providers } from '@/providers'
-import { InitTheme } from '@/providers/Theme/InitTheme'
-import { mergeOpenGraph } from '@/utilities/mergeOpenGraph'
-import { draftMode } from 'next/headers'
 
-import './globals.css'
-import { getServerSideURL } from '@/utilities/getURL'
-
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const { isEnabled } = await draftMode()
+export default async function FrontendLayout({ children }: { children: ReactNode }) {
+  const site = await getSiteSettings()
+  const booking = await getBookingSettings()
 
   return (
-    <html className={cn(GeistSans.variable, GeistMono.variable)} lang="en" suppressHydrationWarning>
-      <head>
-        <InitTheme />
-        <link href="/favicon.ico" rel="icon" sizes="32x32" />
-        <link href="/favicon.svg" rel="icon" type="image/svg+xml" />
-      </head>
-      <body>
-        <Providers>
-          <AdminBar
-            adminBarProps={{
-              preview: isEnabled,
-            }}
-          />
+    <html lang="pl">
+      <body className='bg-gradient-to-b from-[hsl(var(--brand-stone))] to-white'>
+        {/* Skip link – WCAG 2.1 */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:shadow"
+        >
+          Przejdź do treści
+        </a>
 
-          <Header />
-          {children}
-          <Footer />
-        </Providers>
+        <SiteHeader siteName={site?.siteName ?? 'Caravans'} />
+        <div className="h-full">
+          <main className="mx-auto w-full max-w-[1400px] md:px-4 md:py-8 min-h-dvh">{children}</main>
+        </div>
+
+        <SiteFooter site={site} />
       </body>
     </html>
   )
-}
-
-export const metadata: Metadata = {
-  metadataBase: new URL(getServerSideURL()),
-  openGraph: mergeOpenGraph(),
-  twitter: {
-    card: 'summary_large_image',
-    creator: '@payloadcms',
-  },
 }

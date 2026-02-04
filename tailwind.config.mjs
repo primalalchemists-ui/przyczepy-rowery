@@ -1,5 +1,14 @@
 /** @type {import('tailwindcss').Config} */
 const config = {
+  content: [
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+
+    // ✅ U CIEBIE NAJWAŻNIEJSZE
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+
   theme: {
     extend: {
       typography: () => ({
@@ -43,6 +52,11 @@ const config = {
       }),
     },
   },
+
+  plugins: [
+    require('@tailwindcss/typography'),
+    require('tailwindcss-animate'), // ✅ potrzebne dla shadcn Sheet
+  ],
 }
 
 export default config

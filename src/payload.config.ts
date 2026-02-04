@@ -3,17 +3,30 @@ import sharp from 'sharp'
 import path from 'path'
 import { buildConfig, PayloadRequest } from 'payload'
 import { fileURLToPath } from 'url'
+import { s3Storage } from '@payloadcms/storage-s3'
 
-import { Categories } from './collections/Categories'
+
+// import { Categories } from './collections/Categories'
 import { Media } from './collections/Media'
-import { Pages } from './collections/Pages'
-import { Posts } from './collections/Posts'
+// import { Pages } from './collections/Pages'
+// import { Posts } from './collections/Posts'
 import { Users } from './collections/Users'
-import { Footer } from './Footer/config'
-import { Header } from './Header/config'
-import { plugins } from './plugins'
+// import { Footer } from './Footer/config'
+// import { Header } from './Header/config'
+// import { plugins } from './plugins'
 import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
+
+// import { Media } from './payload/collections/media'
+import { Dodatki } from './collections/dodatki'
+import { Przyczepy } from './collections/przyczepy'
+import { Rezerwacje } from './collections/rezerwacje'
+import { Platnosci } from './collections/platnosci'
+import { Blokady } from './collections/blokady'
+
+import { UstawieniaStrony } from './globals/ustawienia-strony'
+import { UstawieniaRezerwacji } from './globals/ustawienia-rezerwacji'
+
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -23,10 +36,10 @@ export default buildConfig({
     components: {
       // The `BeforeLogin` component renders a message that you see while logging into your admin panel.
       // Feel free to delete this at any time. Simply remove the line below.
-      beforeLogin: ['@/components/BeforeLogin'],
+      // beforeLogin: ['@/components/BeforeLogin'],
       // The `BeforeDashboard` component renders the 'welcome' block that you see after logging into your admin panel.
       // Feel free to delete this at any time. Simply remove the line below.
-      beforeDashboard: ['@/components/BeforeDashboard'],
+      // beforeDashboard: ['@/components/BeforeDashboard'],
     },
     importMap: {
       baseDir: path.resolve(dirname),
@@ -62,10 +75,30 @@ export default buildConfig({
       connectionString: process.env.DATABASE_URL || '',
     },
   }),
-  collections: [Pages, Posts, Media, Categories, Users],
+  collections: [Media, Users, Dodatki, Przyczepy, Rezerwacje, Blokady, Platnosci],
   cors: [getServerSideURL()].filter(Boolean),
-  globals: [Header, Footer],
-  plugins,
+  globals: [UstawieniaStrony, UstawieniaRezerwacji],
+  plugins: [
+    s3Storage({
+      collections: {
+        media: true,
+      },
+
+      bucket: process.env.S3_BUCKET!,
+
+      config: {
+        region: process.env.S3_REGION!,
+        endpoint: process.env.S3_ENDPOINT!,
+        credentials: {
+          accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+        },
+
+        forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
+      },
+    }),
+  ],
+
   secret: process.env.PAYLOAD_SECRET,
   sharp,
   typescript: {
