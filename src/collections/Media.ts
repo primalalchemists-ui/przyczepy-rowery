@@ -34,9 +34,17 @@ export const Media: CollectionConfig = {
 
   upload: {
     mimeTypes: ['image/*', 'application/pdf'],
-
     adminThumbnail: 'thumbnail',
     focalPoint: true,
+
+    /**
+     * ✅ Każdy media record ma swój folder w bucket.
+     * Dzięki temu Payload kasuje spójnie wszystkie warianty.
+     *
+     * Uwaga: `doc.id` będzie dostępne po utworzeniu rekordu.
+     * Dla pierwszego uploadu Payload tworzy rekord i dopiero potem zapisuje plik.
+     */
+    prefix: ({ doc }) => `media/${doc.id}`,
 
     imageSizes: [
       { name: 'thumbnail', width: 300 },
