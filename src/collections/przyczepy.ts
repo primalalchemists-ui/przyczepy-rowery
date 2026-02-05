@@ -114,7 +114,7 @@ export const Przyczepy: CollectionConfig = {
           label: 'Zdjęcie',
           type: 'upload',
           relationTo: 'media',
-          required: true,
+          required: false,
         },
       ],
     },

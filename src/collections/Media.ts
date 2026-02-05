@@ -32,28 +32,19 @@ export const Media: CollectionConfig = {
     },
   ],
 
-  upload: {
-    mimeTypes: ['image/*', 'application/pdf'],
-    adminThumbnail: 'thumbnail',
-    focalPoint: true,
+ upload: {
+  mimeTypes: ['image/*', 'application/pdf'],
+  adminThumbnail: 'thumbnail',
+  focalPoint: true,
+  imageSizes: [
+    { name: 'thumbnail', width: 300 },
+    { name: 'square', width: 500, height: 500 },
+    { name: 'small', width: 600 },
+    { name: 'medium', width: 900 },
+    { name: 'large', width: 1400 },
+    { name: 'xlarge', width: 1920 },
+    { name: 'og', width: 1200, height: 630, crop: 'center' },
+  ],
+}
 
-    /**
-     * ✅ Każdy media record ma swój folder w bucket.
-     * Dzięki temu Payload kasuje spójnie wszystkie warianty.
-     *
-     * Uwaga: `doc.id` będzie dostępne po utworzeniu rekordu.
-     * Dla pierwszego uploadu Payload tworzy rekord i dopiero potem zapisuje plik.
-     */
-    prefix: ({ doc }) => `media/${doc.id}`,
-
-    imageSizes: [
-      { name: 'thumbnail', width: 300 },
-      { name: 'square', width: 500, height: 500 },
-      { name: 'small', width: 600 },
-      { name: 'medium', width: 900 },
-      { name: 'large', width: 1400 },
-      { name: 'xlarge', width: 1920 },
-      { name: 'og', width: 1200, height: 630, crop: 'center' },
-    ],
-  },
 }
