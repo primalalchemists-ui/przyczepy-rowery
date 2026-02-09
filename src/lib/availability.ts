@@ -111,7 +111,9 @@ export async function getAvailabilityForTrailerRange(args: {
   const payload = await getPayload({ config })
 
   const trailerIdNorm = normalizeRelId(args.trailerId)
-  const { from, to } = args
+  const from = startOfDayUTC(args.from)
+  const to = addDaysUTC(startOfDayUTC(args.to), 1)
+
 
   /* ✅ STATUSY KTÓRE BLOKUJĄ TERMIN */
   const occupyingStatuses: BookingStatus[] = [
