@@ -17,3 +17,6 @@ tests
 # env (nie powinno iść do obrazu)
 .env
 .env.*
+
+docker-compose.yml
+redeploy.txt
