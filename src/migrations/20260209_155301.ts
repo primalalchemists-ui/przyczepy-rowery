@@ -2,18 +2,23 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
-   CREATE TYPE "public"."enum_dodatki_pricing_type" AS ENUM('perBooking', 'perDay');
+   CREATE TYPE "public"."enum_dodatki_dostepne_dla" AS ENUM('przyczepa', 'ebike');
+  CREATE TYPE "public"."enum_dodatki_pricing_type" AS ENUM('perBooking', 'perDay');
+  CREATE TYPE "public"."enum_zasoby_typ_zasobu" AS ENUM('przyczepa', 'ebike');
+  CREATE TYPE "public"."enum_zasoby_ebike_typ" AS ENUM('mtb', 'city', 'trekking', 'gravel');
+  CREATE TYPE "public"."enum_zasoby_cena_jednostka" AS ENUM('noc', 'dzien');
   CREATE TYPE "public"."enum_rezerwacje_snapshot_extras_snapshot_pricing_type" AS ENUM('perBooking', 'perDay');
   CREATE TYPE "public"."enum_rezerwacje_status" AS ENUM('pending_payment', 'deposit_paid', 'paid', 'confirmed', 'cancelled');
   CREATE TYPE "public"."enum_platnosci_provider" AS ENUM('stripe', 'p24');
   CREATE TYPE "public"."enum_platnosci_status" AS ENUM('created', 'pending', 'succeeded', 'failed', 'refunded');
-  CREATE TYPE "public"."enum_ustawienia_rezerwacji_payment_mode" AS ENUM('full', 'deposit');
-  CREATE TYPE "public"."enum_ustawienia_rezerwacji_deposit_type" AS ENUM('percent', 'fixed');
+  CREATE TYPE "public"."enum_ustawienia_rezerwacji_ogolne_payment_mode" AS ENUM('full', 'deposit');
+  CREATE TYPE "public"."enum_ustawienia_rezerwacji_ogolne_deposit_type" AS ENUM('percent', 'fixed');
   CREATE TYPE "public"."enum_ustawienia_rezerwacji_payment_provider_default" AS ENUM('stripe', 'p24');
   CREATE TABLE "media" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"alt" varchar,
   	"caption" jsonb,
+  	"typ_pliku" varchar,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"url" varchar,
@@ -91,6 +96,13 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"lock_until" timestamp(3) with time zone
   );
   
+  CREATE TABLE "dodatki_dostepne_dla" (
+  	"order" integer NOT NULL,
+  	"parent_id" integer NOT NULL,
+  	"value" "enum_dodatki_dostepne_dla",
+  	"id" serial PRIMARY KEY NOT NULL
+  );
+  
   CREATE TABLE "dodatki" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"name" varchar NOT NULL,
@@ -102,54 +114,57 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
-  CREATE TABLE "przyczepy_gallery" (
+  CREATE TABLE "zasoby_gallery" (
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
-  	"image_id" integer NOT NULL
+  	"media_id" integer NOT NULL
   );
   
-  CREATE TABLE "przyczepy_specyfikacja_items" (
+  CREATE TABLE "zasoby_specyfikacja" (
   	"_order" integer NOT NULL,
-  	"_parent_id" varchar NOT NULL,
+  	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
   	"label" varchar NOT NULL,
   	"value" varchar NOT NULL
   );
   
-  CREATE TABLE "przyczepy_specyfikacja" (
-  	"_order" integer NOT NULL,
-  	"_parent_id" integer NOT NULL,
-  	"id" varchar PRIMARY KEY NOT NULL,
-  	"title" varchar NOT NULL
-  );
-  
-  CREATE TABLE "przyczepy_cena_seasonal_pricing" (
+  CREATE TABLE "zasoby_cena_seasonal_pricing" (
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
   	"name" varchar NOT NULL,
   	"date_from" timestamp(3) with time zone NOT NULL,
   	"date_to" timestamp(3) with time zone NOT NULL,
-  	"price_per_night" numeric NOT NULL,
-  	"min_nights" numeric
+  	"price" numeric NOT NULL,
+  	"min_units" numeric
   );
   
-  CREATE TABLE "przyczepy" (
+  CREATE TABLE "zasoby" (
   	"id" serial PRIMARY KEY NOT NULL,
+  	"typ_zasobu" "enum_zasoby_typ_zasobu" DEFAULT 'przyczepa' NOT NULL,
   	"nazwa" varchar NOT NULL,
   	"slug" varchar,
   	"active" boolean DEFAULT true NOT NULL,
   	"ilosc_sztuk" numeric DEFAULT 1 NOT NULL,
   	"opis_krotki" varchar,
   	"opis_dlugi" jsonb,
-  	"hero_image_id" integer NOT NULL,
-  	"cena_base_price_per_night" numeric NOT NULL,
+  	"hero_media_id" integer NOT NULL,
+  	"przyczepa_dmc" varchar,
+  	"przyczepa_ilosc_osob" numeric,
+  	"ebike_marka" varchar,
+  	"ebike_model" varchar,
+  	"ebike_rozmiar_ramy" varchar,
+  	"ebike_bateria_wh" numeric,
+  	"ebike_zasieg_km" numeric,
+  	"ebike_typ" "enum_zasoby_ebike_typ",
+  	"cena_jednostka" "enum_zasoby_cena_jednostka" DEFAULT 'noc' NOT NULL,
+  	"cena_base_price" numeric NOT NULL,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
-  CREATE TABLE "przyczepy_rels" (
+  CREATE TABLE "zasoby_rels" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"order" integer,
   	"parent_id" integer NOT NULL,
@@ -165,13 +180,13 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"quantity" numeric DEFAULT 1 NOT NULL
   );
   
-  CREATE TABLE "rezerwacje_snapshot_lodging_breakdown" (
+  CREATE TABLE "rezerwacje_snapshot_breakdown" (
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
   	"id" varchar PRIMARY KEY NOT NULL,
   	"label" varchar NOT NULL,
-  	"nights" numeric NOT NULL,
-  	"price_per_night" numeric NOT NULL,
+  	"units" numeric NOT NULL,
+  	"price_per_unit" numeric NOT NULL,
   	"total" numeric NOT NULL
   );
   
@@ -188,7 +203,8 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE "rezerwacje" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"przyczepa_id" integer NOT NULL,
+  	"zasob_id" integer NOT NULL,
+  	"ilosc" numeric DEFAULT 1 NOT NULL,
   	"start_date" timestamp(3) with time zone NOT NULL,
   	"end_date" timestamp(3) with time zone NOT NULL,
   	"status" "enum_rezerwacje_status" DEFAULT 'pending_payment' NOT NULL,
@@ -203,10 +219,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"payment_paid_amount" numeric,
   	"payment_due_amount" numeric,
   	"payment_paid_in_full" boolean,
-  	"snapshot_nights" numeric,
-  	"snapshot_price_per_night" numeric,
-  	"snapshot_standard_nights" numeric,
-  	"snapshot_seasonal_nights" numeric,
+  	"snapshot_units" numeric,
+  	"snapshot_unit_type" varchar,
+  	"snapshot_base_price" numeric,
   	"snapshot_service_fee" numeric,
   	"snapshot_total" numeric,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
@@ -215,7 +230,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE "blokady" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"przyczepa_id" integer NOT NULL,
+  	"zasob_id" integer NOT NULL,
   	"date_from" timestamp(3) with time zone NOT NULL,
   	"date_to" timestamp(3) with time zone NOT NULL,
   	"ilosc" numeric DEFAULT 1 NOT NULL,
@@ -260,7 +275,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"media_id" integer,
   	"users_id" integer,
   	"dodatki_id" integer,
-  	"przyczepy_id" integer,
+  	"zasoby_id" integer,
   	"rezerwacje_id" integer,
   	"blokady_id" integer,
   	"platnosci_id" integer
@@ -305,11 +320,14 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE TABLE "ustawienia_rezerwacji" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"booking_enabled" boolean DEFAULT true NOT NULL,
-  	"min_nights_default" numeric DEFAULT 1 NOT NULL,
-  	"service_fee" numeric DEFAULT 0 NOT NULL,
-  	"payment_mode" "enum_ustawienia_rezerwacji_payment_mode" DEFAULT 'full' NOT NULL,
-  	"deposit_type" "enum_ustawienia_rezerwacji_deposit_type" DEFAULT 'percent',
-  	"deposit_value" numeric,
+  	"ogolne_service_fee" numeric DEFAULT 0 NOT NULL,
+  	"ogolne_payment_mode" "enum_ustawienia_rezerwacji_ogolne_payment_mode" DEFAULT 'full' NOT NULL,
+  	"ogolne_deposit_type" "enum_ustawienia_rezerwacji_ogolne_deposit_type" DEFAULT 'percent',
+  	"ogolne_deposit_value" numeric,
+  	"dla_przyczep_min_units" numeric DEFAULT 1 NOT NULL,
+  	"dla_przyczep_service_fee" numeric DEFAULT 0 NOT NULL,
+  	"dla_rowerow_min_units" numeric DEFAULT 1 NOT NULL,
+  	"dla_rowerow_service_fee" numeric DEFAULT 0 NOT NULL,
   	"regulamin_pdf_id" integer,
   	"polityka_prywatnosci_pdf_id" integer,
   	"payment_provider_default" "enum_ustawienia_rezerwacji_payment_provider_default" DEFAULT 'stripe' NOT NULL,
@@ -318,26 +336,26 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   );
   
   ALTER TABLE "users_sessions" ADD CONSTRAINT "users_sessions_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "przyczepy_gallery" ADD CONSTRAINT "przyczepy_gallery_image_id_media_id_fk" FOREIGN KEY ("image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "przyczepy_gallery" ADD CONSTRAINT "przyczepy_gallery_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."przyczepy"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "przyczepy_specyfikacja_items" ADD CONSTRAINT "przyczepy_specyfikacja_items_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."przyczepy_specyfikacja"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "przyczepy_specyfikacja" ADD CONSTRAINT "przyczepy_specyfikacja_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."przyczepy"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "przyczepy_cena_seasonal_pricing" ADD CONSTRAINT "przyczepy_cena_seasonal_pricing_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."przyczepy"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "przyczepy" ADD CONSTRAINT "przyczepy_hero_image_id_media_id_fk" FOREIGN KEY ("hero_image_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "przyczepy_rels" ADD CONSTRAINT "przyczepy_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."przyczepy"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "przyczepy_rels" ADD CONSTRAINT "przyczepy_rels_dodatki_fk" FOREIGN KEY ("dodatki_id") REFERENCES "public"."dodatki"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "dodatki_dostepne_dla" ADD CONSTRAINT "dodatki_dostepne_dla_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."dodatki"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "zasoby_gallery" ADD CONSTRAINT "zasoby_gallery_media_id_media_id_fk" FOREIGN KEY ("media_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "zasoby_gallery" ADD CONSTRAINT "zasoby_gallery_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."zasoby"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "zasoby_specyfikacja" ADD CONSTRAINT "zasoby_specyfikacja_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."zasoby"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "zasoby_cena_seasonal_pricing" ADD CONSTRAINT "zasoby_cena_seasonal_pricing_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."zasoby"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "zasoby" ADD CONSTRAINT "zasoby_hero_media_id_media_id_fk" FOREIGN KEY ("hero_media_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "zasoby_rels" ADD CONSTRAINT "zasoby_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."zasoby"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "zasoby_rels" ADD CONSTRAINT "zasoby_rels_dodatki_fk" FOREIGN KEY ("dodatki_id") REFERENCES "public"."dodatki"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "rezerwacje_extras" ADD CONSTRAINT "rezerwacje_extras_dodatek_id_dodatki_id_fk" FOREIGN KEY ("dodatek_id") REFERENCES "public"."dodatki"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "rezerwacje_extras" ADD CONSTRAINT "rezerwacje_extras_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."rezerwacje"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "rezerwacje_snapshot_lodging_breakdown" ADD CONSTRAINT "rezerwacje_snapshot_lodging_breakdown_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."rezerwacje"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "rezerwacje_snapshot_breakdown" ADD CONSTRAINT "rezerwacje_snapshot_breakdown_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."rezerwacje"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "rezerwacje_snapshot_extras_snapshot" ADD CONSTRAINT "rezerwacje_snapshot_extras_snapshot_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."rezerwacje"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "rezerwacje" ADD CONSTRAINT "rezerwacje_przyczepa_id_przyczepy_id_fk" FOREIGN KEY ("przyczepa_id") REFERENCES "public"."przyczepy"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "blokady" ADD CONSTRAINT "blokady_przyczepa_id_przyczepy_id_fk" FOREIGN KEY ("przyczepa_id") REFERENCES "public"."przyczepy"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "rezerwacje" ADD CONSTRAINT "rezerwacje_zasob_id_zasoby_id_fk" FOREIGN KEY ("zasob_id") REFERENCES "public"."zasoby"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "blokady" ADD CONSTRAINT "blokady_zasob_id_zasoby_id_fk" FOREIGN KEY ("zasob_id") REFERENCES "public"."zasoby"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "platnosci" ADD CONSTRAINT "platnosci_booking_id_rezerwacje_id_fk" FOREIGN KEY ("booking_id") REFERENCES "public"."rezerwacje"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."payload_locked_documents"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_media_fk" FOREIGN KEY ("media_id") REFERENCES "public"."media"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_users_fk" FOREIGN KEY ("users_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_dodatki_fk" FOREIGN KEY ("dodatki_id") REFERENCES "public"."dodatki"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_przyczepy_fk" FOREIGN KEY ("przyczepy_id") REFERENCES "public"."przyczepy"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_zasoby_fk" FOREIGN KEY ("zasoby_id") REFERENCES "public"."zasoby"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_rezerwacje_fk" FOREIGN KEY ("rezerwacje_id") REFERENCES "public"."rezerwacje"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_blokady_fk" FOREIGN KEY ("blokady_id") REFERENCES "public"."blokady"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_platnosci_fk" FOREIGN KEY ("platnosci_id") REFERENCES "public"."platnosci"("id") ON DELETE cascade ON UPDATE no action;
@@ -360,43 +378,44 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "users_updated_at_idx" ON "users" USING btree ("updated_at");
   CREATE INDEX "users_created_at_idx" ON "users" USING btree ("created_at");
   CREATE UNIQUE INDEX "users_email_idx" ON "users" USING btree ("email");
+  CREATE INDEX "dodatki_dostepne_dla_order_idx" ON "dodatki_dostepne_dla" USING btree ("order");
+  CREATE INDEX "dodatki_dostepne_dla_parent_idx" ON "dodatki_dostepne_dla" USING btree ("parent_id");
   CREATE INDEX "dodatki_name_idx" ON "dodatki" USING btree ("name");
   CREATE INDEX "dodatki_updated_at_idx" ON "dodatki" USING btree ("updated_at");
   CREATE INDEX "dodatki_created_at_idx" ON "dodatki" USING btree ("created_at");
-  CREATE INDEX "przyczepy_gallery_order_idx" ON "przyczepy_gallery" USING btree ("_order");
-  CREATE INDEX "przyczepy_gallery_parent_id_idx" ON "przyczepy_gallery" USING btree ("_parent_id");
-  CREATE INDEX "przyczepy_gallery_image_idx" ON "przyczepy_gallery" USING btree ("image_id");
-  CREATE INDEX "przyczepy_specyfikacja_items_order_idx" ON "przyczepy_specyfikacja_items" USING btree ("_order");
-  CREATE INDEX "przyczepy_specyfikacja_items_parent_id_idx" ON "przyczepy_specyfikacja_items" USING btree ("_parent_id");
-  CREATE INDEX "przyczepy_specyfikacja_order_idx" ON "przyczepy_specyfikacja" USING btree ("_order");
-  CREATE INDEX "przyczepy_specyfikacja_parent_id_idx" ON "przyczepy_specyfikacja" USING btree ("_parent_id");
-  CREATE INDEX "przyczepy_cena_seasonal_pricing_order_idx" ON "przyczepy_cena_seasonal_pricing" USING btree ("_order");
-  CREATE INDEX "przyczepy_cena_seasonal_pricing_parent_id_idx" ON "przyczepy_cena_seasonal_pricing" USING btree ("_parent_id");
-  CREATE INDEX "przyczepy_nazwa_idx" ON "przyczepy" USING btree ("nazwa");
-  CREATE UNIQUE INDEX "przyczepy_slug_idx" ON "przyczepy" USING btree ("slug");
-  CREATE INDEX "przyczepy_active_idx" ON "przyczepy" USING btree ("active");
-  CREATE INDEX "przyczepy_ilosc_sztuk_idx" ON "przyczepy" USING btree ("ilosc_sztuk");
-  CREATE INDEX "przyczepy_hero_image_idx" ON "przyczepy" USING btree ("hero_image_id");
-  CREATE INDEX "przyczepy_updated_at_idx" ON "przyczepy" USING btree ("updated_at");
-  CREATE INDEX "przyczepy_created_at_idx" ON "przyczepy" USING btree ("created_at");
-  CREATE INDEX "przyczepy_rels_order_idx" ON "przyczepy_rels" USING btree ("order");
-  CREATE INDEX "przyczepy_rels_parent_idx" ON "przyczepy_rels" USING btree ("parent_id");
-  CREATE INDEX "przyczepy_rels_path_idx" ON "przyczepy_rels" USING btree ("path");
-  CREATE INDEX "przyczepy_rels_dodatki_id_idx" ON "przyczepy_rels" USING btree ("dodatki_id");
+  CREATE INDEX "zasoby_gallery_order_idx" ON "zasoby_gallery" USING btree ("_order");
+  CREATE INDEX "zasoby_gallery_parent_id_idx" ON "zasoby_gallery" USING btree ("_parent_id");
+  CREATE INDEX "zasoby_gallery_media_idx" ON "zasoby_gallery" USING btree ("media_id");
+  CREATE INDEX "zasoby_specyfikacja_order_idx" ON "zasoby_specyfikacja" USING btree ("_order");
+  CREATE INDEX "zasoby_specyfikacja_parent_id_idx" ON "zasoby_specyfikacja" USING btree ("_parent_id");
+  CREATE INDEX "zasoby_cena_seasonal_pricing_order_idx" ON "zasoby_cena_seasonal_pricing" USING btree ("_order");
+  CREATE INDEX "zasoby_cena_seasonal_pricing_parent_id_idx" ON "zasoby_cena_seasonal_pricing" USING btree ("_parent_id");
+  CREATE INDEX "zasoby_typ_zasobu_idx" ON "zasoby" USING btree ("typ_zasobu");
+  CREATE INDEX "zasoby_nazwa_idx" ON "zasoby" USING btree ("nazwa");
+  CREATE UNIQUE INDEX "zasoby_slug_idx" ON "zasoby" USING btree ("slug");
+  CREATE INDEX "zasoby_active_idx" ON "zasoby" USING btree ("active");
+  CREATE INDEX "zasoby_ilosc_sztuk_idx" ON "zasoby" USING btree ("ilosc_sztuk");
+  CREATE INDEX "zasoby_hero_media_idx" ON "zasoby" USING btree ("hero_media_id");
+  CREATE INDEX "zasoby_updated_at_idx" ON "zasoby" USING btree ("updated_at");
+  CREATE INDEX "zasoby_created_at_idx" ON "zasoby" USING btree ("created_at");
+  CREATE INDEX "zasoby_rels_order_idx" ON "zasoby_rels" USING btree ("order");
+  CREATE INDEX "zasoby_rels_parent_idx" ON "zasoby_rels" USING btree ("parent_id");
+  CREATE INDEX "zasoby_rels_path_idx" ON "zasoby_rels" USING btree ("path");
+  CREATE INDEX "zasoby_rels_dodatki_id_idx" ON "zasoby_rels" USING btree ("dodatki_id");
   CREATE INDEX "rezerwacje_extras_order_idx" ON "rezerwacje_extras" USING btree ("_order");
   CREATE INDEX "rezerwacje_extras_parent_id_idx" ON "rezerwacje_extras" USING btree ("_parent_id");
   CREATE INDEX "rezerwacje_extras_dodatek_idx" ON "rezerwacje_extras" USING btree ("dodatek_id");
-  CREATE INDEX "rezerwacje_snapshot_lodging_breakdown_order_idx" ON "rezerwacje_snapshot_lodging_breakdown" USING btree ("_order");
-  CREATE INDEX "rezerwacje_snapshot_lodging_breakdown_parent_id_idx" ON "rezerwacje_snapshot_lodging_breakdown" USING btree ("_parent_id");
+  CREATE INDEX "rezerwacje_snapshot_breakdown_order_idx" ON "rezerwacje_snapshot_breakdown" USING btree ("_order");
+  CREATE INDEX "rezerwacje_snapshot_breakdown_parent_id_idx" ON "rezerwacje_snapshot_breakdown" USING btree ("_parent_id");
   CREATE INDEX "rezerwacje_snapshot_extras_snapshot_order_idx" ON "rezerwacje_snapshot_extras_snapshot" USING btree ("_order");
   CREATE INDEX "rezerwacje_snapshot_extras_snapshot_parent_id_idx" ON "rezerwacje_snapshot_extras_snapshot" USING btree ("_parent_id");
-  CREATE INDEX "rezerwacje_przyczepa_idx" ON "rezerwacje" USING btree ("przyczepa_id");
+  CREATE INDEX "rezerwacje_zasob_idx" ON "rezerwacje" USING btree ("zasob_id");
   CREATE INDEX "rezerwacje_start_date_idx" ON "rezerwacje" USING btree ("start_date");
   CREATE INDEX "rezerwacje_end_date_idx" ON "rezerwacje" USING btree ("end_date");
   CREATE INDEX "rezerwacje_status_idx" ON "rezerwacje" USING btree ("status");
   CREATE INDEX "rezerwacje_updated_at_idx" ON "rezerwacje" USING btree ("updated_at");
   CREATE INDEX "rezerwacje_created_at_idx" ON "rezerwacje" USING btree ("created_at");
-  CREATE INDEX "blokady_przyczepa_idx" ON "blokady" USING btree ("przyczepa_id");
+  CREATE INDEX "blokady_zasob_idx" ON "blokady" USING btree ("zasob_id");
   CREATE INDEX "blokady_date_from_idx" ON "blokady" USING btree ("date_from");
   CREATE INDEX "blokady_date_to_idx" ON "blokady" USING btree ("date_to");
   CREATE INDEX "blokady_active_idx" ON "blokady" USING btree ("active");
@@ -416,7 +435,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "payload_locked_documents_rels_media_id_idx" ON "payload_locked_documents_rels" USING btree ("media_id");
   CREATE INDEX "payload_locked_documents_rels_users_id_idx" ON "payload_locked_documents_rels" USING btree ("users_id");
   CREATE INDEX "payload_locked_documents_rels_dodatki_id_idx" ON "payload_locked_documents_rels" USING btree ("dodatki_id");
-  CREATE INDEX "payload_locked_documents_rels_przyczepy_id_idx" ON "payload_locked_documents_rels" USING btree ("przyczepy_id");
+  CREATE INDEX "payload_locked_documents_rels_zasoby_id_idx" ON "payload_locked_documents_rels" USING btree ("zasoby_id");
   CREATE INDEX "payload_locked_documents_rels_rezerwacje_id_idx" ON "payload_locked_documents_rels" USING btree ("rezerwacje_id");
   CREATE INDEX "payload_locked_documents_rels_blokady_id_idx" ON "payload_locked_documents_rels" USING btree ("blokady_id");
   CREATE INDEX "payload_locked_documents_rels_platnosci_id_idx" ON "payload_locked_documents_rels" USING btree ("platnosci_id");
@@ -438,15 +457,15 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
    DROP TABLE "media" CASCADE;
   DROP TABLE "users_sessions" CASCADE;
   DROP TABLE "users" CASCADE;
+  DROP TABLE "dodatki_dostepne_dla" CASCADE;
   DROP TABLE "dodatki" CASCADE;
-  DROP TABLE "przyczepy_gallery" CASCADE;
-  DROP TABLE "przyczepy_specyfikacja_items" CASCADE;
-  DROP TABLE "przyczepy_specyfikacja" CASCADE;
-  DROP TABLE "przyczepy_cena_seasonal_pricing" CASCADE;
-  DROP TABLE "przyczepy" CASCADE;
-  DROP TABLE "przyczepy_rels" CASCADE;
+  DROP TABLE "zasoby_gallery" CASCADE;
+  DROP TABLE "zasoby_specyfikacja" CASCADE;
+  DROP TABLE "zasoby_cena_seasonal_pricing" CASCADE;
+  DROP TABLE "zasoby" CASCADE;
+  DROP TABLE "zasoby_rels" CASCADE;
   DROP TABLE "rezerwacje_extras" CASCADE;
-  DROP TABLE "rezerwacje_snapshot_lodging_breakdown" CASCADE;
+  DROP TABLE "rezerwacje_snapshot_breakdown" CASCADE;
   DROP TABLE "rezerwacje_snapshot_extras_snapshot" CASCADE;
   DROP TABLE "rezerwacje" CASCADE;
   DROP TABLE "blokady" CASCADE;
@@ -459,12 +478,16 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "payload_migrations" CASCADE;
   DROP TABLE "ustawienia_strony" CASCADE;
   DROP TABLE "ustawienia_rezerwacji" CASCADE;
+  DROP TYPE "public"."enum_dodatki_dostepne_dla";
   DROP TYPE "public"."enum_dodatki_pricing_type";
+  DROP TYPE "public"."enum_zasoby_typ_zasobu";
+  DROP TYPE "public"."enum_zasoby_ebike_typ";
+  DROP TYPE "public"."enum_zasoby_cena_jednostka";
   DROP TYPE "public"."enum_rezerwacje_snapshot_extras_snapshot_pricing_type";
   DROP TYPE "public"."enum_rezerwacje_status";
   DROP TYPE "public"."enum_platnosci_provider";
   DROP TYPE "public"."enum_platnosci_status";
-  DROP TYPE "public"."enum_ustawienia_rezerwacji_payment_mode";
-  DROP TYPE "public"."enum_ustawienia_rezerwacji_deposit_type";
+  DROP TYPE "public"."enum_ustawienia_rezerwacji_ogolne_payment_mode";
+  DROP TYPE "public"."enum_ustawienia_rezerwacji_ogolne_deposit_type";
   DROP TYPE "public"."enum_ustawienia_rezerwacji_payment_provider_default";`)
 }

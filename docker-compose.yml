@@ -1,12 +1,12 @@
 services:
   postgres:
     image: postgres:16
-    container_name: caravans-postgres
+    container_name: caravans_rowery-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
-      POSTGRES_DB: caravans
+      POSTGRES_DB: caravans_rowery
       POSTGRES_USER: caravans
       POSTGRES_PASSWORD: caravans
     volumes:
@@ -14,23 +14,39 @@ services:
 
   payload:
     image: node:20-alpine
-    container_name: caravans-payload
+    container_name: caravans_rowery-payload
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
     working_dir: /home/node/app
+
+    stdin_open: true
+    tty: true
+
+    # ✅ DEV realtime na Windows/Docker: polling + stable watchers
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=250
+      # opcjonalnie, czasem pomaga przy “gubieniu” eventów:
+      - WATCHPACK_POLLING_INTERVAL=250
+
     volumes:
       - .:/home/node/app
       - node_modules:/home/node/app/node_modules
+
     env_file:
       - .env
     depends_on:
       - postgres
+
+    # ✅ Next dev w kontenerze musi słuchać na 0.0.0.0
     command: >
       sh -c "corepack enable &&
       corepack prepare pnpm@10.0.0 --activate &&
       pnpm install &&
-      pnpm dev"
+      HOSTNAME=0.0.0.0 PORT=3000 pnpm dev"
 
 volumes:
   node_modules:

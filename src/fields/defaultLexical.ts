@@ -20,7 +20,7 @@ export const defaultLexical = lexicalEditor({
     LinkFeature({
       // ✅ TYLKO kolekcje, które realnie istnieją w Twoim projekcie:
       // (masz /przyczepy/[slug], więc wewnętrzne linki do przyczep mają sens)
-      enabledCollections: ['przyczepy'],
+      enabledCollections: ['zasoby'],
 
       // Zostawiamy Twoją logikę custom URL:
       // - internal link => url nie jest potrzebny

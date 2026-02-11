@@ -1,13 +1,14 @@
 import Link from 'next/link'
-import { TrailerCard } from '@/components/trailer-card'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import type { ResourceDoc } from '@/lib/payload'
+import { ResourceTileCard } from '@/components/resource-tile-card'
 
 type Props = {
-  przyczepy: Array<any>
+  zasoby: Array<ResourceDoc>
 }
 
-export function HomeFeatured({ przyczepy }: Props) {
+export function HomeFeatured({ zasoby }: Props) {
   return (
     <section aria-labelledby="featured-heading" className="space-y-4 px-2 md:px-0">
       <div className="flex items-center justify-between gap-4">
@@ -15,20 +16,20 @@ export function HomeFeatured({ przyczepy }: Props) {
           Polecane
         </h2>
         <Button asChild variant="link">
-          <Link href="/przyczepy">Zobacz wszystkie</Link>
+          <Link href="/oferta">Zobacz wszystkie</Link>
         </Button>
       </div>
 
-      {!przyczepy?.length ? (
+      {!zasoby?.length ? (
         <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">
-            Brak aktywnych przyczep do wyświetlenia.
+            Brak polecanych zasobów do wyświetlenia.
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-3">
-          {przyczepy.map((p) => (
-            <TrailerCard key={p.slug} przyczepa={p} />
+          {zasoby.map((z) => (
+            <ResourceTileCard key={z.slug} zasob={z} />
           ))}
         </div>
       )}

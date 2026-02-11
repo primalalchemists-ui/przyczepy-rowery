@@ -119,5 +119,30 @@ html[data-theme='dark'] {
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-lato), system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   }
 }
+
+/* Subtelne odbicie tekstu (mirror) – bez psucia czytelności */
+.text-reflect {
+  position: relative;
+}
+
+.text-reflect::after {
+  content: attr(data-reflect);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.15rem);
+  transform: scaleY(-1);
+  opacity: 0.18;
+  filter: blur(0.2px);
+  color: currentColor;
+
+  /* wygaszanie odbicia */
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+
+  pointer-events: none;
+}
+

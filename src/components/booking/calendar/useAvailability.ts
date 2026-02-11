@@ -4,32 +4,32 @@ import { useEffect, useRef, useState } from 'react'
 import type { Availability, IsoRange } from './types'
 
 export function useAvailability(params: {
-  trailerId?: string
+  resourceId?: string
   range: IsoRange
   enabled?: boolean
   forceKey?: number
 }) {
-  const [data, setData] = useState<Availability>({ booked: [], unavailable: [] })
+  const [data, setData] = useState<Availability>({ booked: [], unavailable: [], remainingByDay: {}, stock: 0 })
   const [loading, setLoading] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
   const lastKeyRef = useRef('')
 
   useEffect(() => {
-    if (!params.enabled || !params.trailerId) {
+    const id = params.resourceId
+
+    if (!params.enabled || !id) {
       abortRef.current?.abort()
       abortRef.current = null
       lastKeyRef.current = ''
-      setData({ booked: [], unavailable: [] })
+      setData({ booked: [], unavailable: [], remainingByDay: {}, stock: 0 })
       setLoading(false)
       return
     }
 
-    // key do kontroli “starych” odpowiedzi (np. szybkie next/prev)
-    const reqKey = `${params.trailerId}|${params.range.from}|${params.range.to}|${params.forceKey ?? 0}`
+    const reqKey = `${id}|${params.range.from}|${params.range.to}|${params.forceKey ?? 0}`
     lastKeyRef.current = reqKey
 
-    // abort poprzedniego requestu
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -41,7 +41,7 @@ export function useAvailability(params: {
         setLoading(true)
 
         const url = new URL('/api/availability', window.location.origin)
-        url.searchParams.set('trailerId', params.trailerId!)
+        url.searchParams.set('resourceId', id)
         url.searchParams.set('from', params.range.from)
         url.searchParams.set('to', params.range.to)
 
@@ -54,16 +54,16 @@ export function useAvailability(params: {
         if (!res.ok) return
         const json = (await res.json()) as Availability
 
-        // jeśli w międzyczasie zmienił się key, ignorujemy
         if (!alive) return
         if (lastKeyRef.current !== reqKey) return
 
         setData({
           booked: json?.booked ?? [],
           unavailable: json?.unavailable ?? [],
+          remainingByDay: json?.remainingByDay ?? {},
+          stock: Number(json?.stock ?? 0),
         })
       } catch (e: any) {
-        // abort = normalne, nie traktuj jako error
         if (e?.name === 'AbortError') return
       } finally {
         if (!alive) return
@@ -75,7 +75,7 @@ export function useAvailability(params: {
       alive = false
       controller.abort()
     }
-  }, [params.enabled, params.trailerId, params.range.from, params.range.to, params.forceKey])
+  }, [params.enabled, params.resourceId, params.range.from, params.range.to, params.forceKey])
 
   return { availability: data, loading }
 }

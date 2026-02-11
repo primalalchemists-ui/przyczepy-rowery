@@ -70,7 +70,7 @@ export interface Config {
     media: Media;
     users: User;
     dodatki: Dodatki;
-    przyczepy: Przyczepy;
+    zasoby: Zasoby;
     rezerwacje: Rezerwacje;
     blokady: Blokady;
     platnosci: Platnosci;
@@ -84,7 +84,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     dodatki: DodatkiSelect<false> | DodatkiSelect<true>;
-    przyczepy: PrzyczepySelect<false> | PrzyczepySelect<true>;
+    zasoby: ZasobySelect<false> | ZasobySelect<true>;
     rezerwacje: RezerwacjeSelect<false> | RezerwacjeSelect<true>;
     blokady: BlokadySelect<false> | BlokadySelect<true>;
     platnosci: PlatnosciSelect<false> | PlatnosciSelect<true>;
@@ -154,6 +154,7 @@ export interface Media {
     };
     [k: string]: unknown;
   } | null;
+  typPliku?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -257,6 +258,10 @@ export interface Dodatki {
   id: number;
   name: string;
   /**
+   * Wybierz, dla jakiego typu zasobu ten dodatek ma być dostępny.
+   */
+  dostepneDla: ('przyczepa' | 'ebike')[];
+  /**
    * Kwota w PLN (np. 50.00).
    */
   price: number;
@@ -268,10 +273,11 @@ export interface Dodatki {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "przyczepy".
+ * via the `definition` "zasoby".
  */
-export interface Przyczepy {
+export interface Zasoby {
   id: number;
+  typZasobu: 'przyczepa' | 'ebike';
   nazwa: string;
   slug?: string | null;
   /**
@@ -279,16 +285,14 @@ export interface Przyczepy {
    */
   active: boolean;
   /**
-   * Ile egzemplarzy tej przyczepy faktycznie posiadasz
+   * Jeśli zaznaczone, zasób może pojawić się w sekcji Polecane na stronie głównej (max 3).
+   */
+  featured?: boolean | null;
+  /**
+   * Ile egzemplarzy tego zasobu faktycznie posiadasz.
    */
   iloscSztuk: number;
-  /**
-   * Krótki opis. Max 400 znaków.
-   */
   opisKrotki?: string | null;
-  /**
-   * Pełny opis na stronie przyczepy.
-   */
   opisDlugi?: {
     root: {
       type: string;
@@ -304,45 +308,45 @@ export interface Przyczepy {
     };
     [k: string]: unknown;
   } | null;
-  heroImage: number | Media;
+  heroMedia: number | Media;
   gallery?:
     | {
-        image: number | Media;
+        media: number | Media;
         id?: string | null;
       }[]
     | null;
   specyfikacja?:
     | {
-        title: string;
-        items: {
-          label: string;
-          value: string;
-          id?: string | null;
-        }[];
+        label: string;
+        value: string;
         id?: string | null;
       }[]
     | null;
   cena: {
     /**
-     * Domyślna cena za noc (PLN).
+     * Przyczepy zwykle: noc. Rower: dzień.
      */
-    basePricePerNight: number;
+    jednostka: 'noc' | 'dzien';
+    /**
+     * Cena za jednostkę (noc/dzień).
+     */
+    basePrice: number;
     seasonalPricing?:
       | {
           name: string;
           dateFrom: string;
           dateTo: string;
-          pricePerNight: number;
+          price: number;
           /**
-           * Jeśli ustawisz — sezon wymusi minimum nocy.
+           * Minimum nocy/dni w tym sezonie.
            */
-          minNights?: number | null;
+          minUnits?: number | null;
           id?: string | null;
         }[]
       | null;
   };
   /**
-   * Dodatki, które można wybrać przy rezerwacji tej przyczepy.
+   * Dodatki, które można wybrać przy rezerwacji tego zasobu.
    */
   dodatki?: (number | Dodatki)[] | null;
   updatedAt: string;
@@ -354,9 +358,17 @@ export interface Przyczepy {
  */
 export interface Rezerwacje {
   id: number;
-  przyczepa: number | Przyczepy;
+  zasob: number | Zasoby;
+  /**
+   * Ile sztuk zasobu jest rezerwowanych (np. 2 rowery). Dla przyczepy zwykle 1.
+   */
+  ilosc: number;
   startDate: string;
   endDate: string;
+  /**
+   * Wyliczane automatycznie. Dla e-bike: endDate - 1.
+   */
+  returnDate?: string | null;
   status: 'pending_payment' | 'deposit_paid' | 'paid' | 'confirmed' | 'cancelled';
   extras?:
     | {
@@ -379,9 +391,6 @@ export interface Rezerwacje {
   };
   payment?: {
     payableNow?: number | null;
-    /**
-     * Wpisz ile klient realnie zapłacił
-     */
     paidAmount?: number | null;
     dueAmount?: number | null;
     paidInFull?: boolean | null;
@@ -390,19 +399,18 @@ export interface Rezerwacje {
    * Pola wyliczane automatycznie
    */
   snapshot?: {
-    nights?: number | null;
-    pricePerNight?: number | null;
-    lodgingBreakdown?:
+    units?: number | null;
+    unitType?: string | null;
+    basePrice?: number | null;
+    breakdown?:
       | {
           label: string;
-          nights: number;
-          pricePerNight: number;
+          units: number;
+          pricePerUnit: number;
           total: number;
           id?: string | null;
         }[]
       | null;
-    standardNights?: number | null;
-    seasonalNights?: number | null;
     extrasSnapshot?:
       | {
           name: string;
@@ -425,16 +433,10 @@ export interface Rezerwacje {
  */
 export interface Blokady {
   id: number;
-  przyczepa: number | Przyczepy;
+  zasob: number | Zasoby;
   dateFrom: string;
   dateTo: string;
-  /**
-   * Jeśli masz kilka sztuk tej samej przyczepy, możesz blokować np. 1/2/3 szt. Zależne od pola „ilośćSztuk” w Przyczepach.
-   */
   ilosc: number;
-  /**
-   * Tekst do pokazania w UI (np. „Serwis”, „Wyjazd firmowy”, „Naprawa po kolizji”).
-   */
   komunikat?: string | null;
   active: boolean;
   updatedAt: string;
@@ -494,8 +496,8 @@ export interface PayloadLockedDocument {
         value: number | Dodatki;
       } | null)
     | ({
-        relationTo: 'przyczepy';
-        value: number | Przyczepy;
+        relationTo: 'zasoby';
+        value: number | Zasoby;
       } | null)
     | ({
         relationTo: 'rezerwacje';
@@ -558,6 +560,7 @@ export interface PayloadMigration {
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
   caption?: T;
+  typPliku?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -673,6 +676,7 @@ export interface UsersSelect<T extends boolean = true> {
  */
 export interface DodatkiSelect<T extends boolean = true> {
   name?: T;
+  dostepneDla?: T;
   price?: T;
   pricingType?: T;
   maxQuantity?: T;
@@ -682,47 +686,44 @@ export interface DodatkiSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "przyczepy_select".
+ * via the `definition` "zasoby_select".
  */
-export interface PrzyczepySelect<T extends boolean = true> {
+export interface ZasobySelect<T extends boolean = true> {
+  typZasobu?: T;
   nazwa?: T;
   slug?: T;
   active?: T;
+  featured?: T;
   iloscSztuk?: T;
   opisKrotki?: T;
   opisDlugi?: T;
-  heroImage?: T;
+  heroMedia?: T;
   gallery?:
     | T
     | {
-        image?: T;
+        media?: T;
         id?: T;
       };
   specyfikacja?:
     | T
     | {
-        title?: T;
-        items?:
-          | T
-          | {
-              label?: T;
-              value?: T;
-              id?: T;
-            };
+        label?: T;
+        value?: T;
         id?: T;
       };
   cena?:
     | T
     | {
-        basePricePerNight?: T;
+        jednostka?: T;
+        basePrice?: T;
         seasonalPricing?:
           | T
           | {
               name?: T;
               dateFrom?: T;
               dateTo?: T;
-              pricePerNight?: T;
-              minNights?: T;
+              price?: T;
+              minUnits?: T;
               id?: T;
             };
       };
@@ -735,9 +736,11 @@ export interface PrzyczepySelect<T extends boolean = true> {
  * via the `definition` "rezerwacje_select".
  */
 export interface RezerwacjeSelect<T extends boolean = true> {
-  przyczepa?: T;
+  zasob?: T;
+  ilosc?: T;
   startDate?: T;
   endDate?: T;
+  returnDate?: T;
   status?: T;
   extras?:
     | T
@@ -768,19 +771,18 @@ export interface RezerwacjeSelect<T extends boolean = true> {
   snapshot?:
     | T
     | {
-        nights?: T;
-        pricePerNight?: T;
-        lodgingBreakdown?:
+        units?: T;
+        unitType?: T;
+        basePrice?: T;
+        breakdown?:
           | T
           | {
               label?: T;
-              nights?: T;
-              pricePerNight?: T;
+              units?: T;
+              pricePerUnit?: T;
               total?: T;
               id?: T;
             };
-        standardNights?: T;
-        seasonalNights?: T;
         extrasSnapshot?:
           | T
           | {
@@ -802,7 +804,7 @@ export interface RezerwacjeSelect<T extends boolean = true> {
  * via the `definition` "blokady_select".
  */
 export interface BlokadySelect<T extends boolean = true> {
-  przyczepa?: T;
+  zasob?: T;
   dateFrom?: T;
   dateTo?: T;
   ilosc?: T;
@@ -888,31 +890,29 @@ export interface UstawieniaStrony {
  */
 export interface UstawieniaRezerwacji {
   id: number;
-  /**
-   * Wyłącza globalnie możliwość tworzenia rezerwacji (poza blokadami terminów).
-   */
-  bookingEnabled: boolean;
-  /**
-   * Minimalna liczba nocy dla rezerwacji (o ile sezon nie narzuca innej).
-   */
-  minNightsDefault: number;
-  /**
-   * Kwota doliczana do każdej rezerwacji.
-   */
-  serviceFee: number;
-  paymentMode: 'full' | 'deposit';
-  depositType?: ('percent' | 'fixed') | null;
-  /**
-   * Jeśli procent: np. 30 = 30%. Jeśli kwota: wartość w PLN.
-   */
-  depositValue?: number | null;
-  /**
-   * PDF regulaminu (upload do Media).
-   */
+  dlaPrzyczep: {
+    enabled: boolean;
+    minUnits?: number | null;
+    serviceFee?: number | null;
+    paymentMode?: ('full' | 'deposit') | null;
+    depositType?: ('percent' | 'fixed') | null;
+    /**
+     * Jeśli procent: np. 30 = 30%. Jeśli kwota: wartość w PLN.
+     */
+    depositValue?: number | null;
+  };
+  dlaRowerow: {
+    enabled: boolean;
+    minUnits?: number | null;
+    serviceFee?: number | null;
+    paymentMode?: ('full' | 'deposit') | null;
+    depositType?: ('percent' | 'fixed') | null;
+    /**
+     * Jeśli procent: np. 30 = 30%. Jeśli kwota: wartość w PLN.
+     */
+    depositValue?: number | null;
+  };
   regulaminPdf?: (number | null) | Media;
-  /**
-   * PDF polityki prywatności (upload do Media).
-   */
   politykaPrywatnosciPdf?: (number | null) | Media;
   paymentProviderDefault: 'stripe' | 'p24';
   updatedAt?: string | null;
@@ -938,12 +938,26 @@ export interface UstawieniaStronySelect<T extends boolean = true> {
  * via the `definition` "ustawienia-rezerwacji_select".
  */
 export interface UstawieniaRezerwacjiSelect<T extends boolean = true> {
-  bookingEnabled?: T;
-  minNightsDefault?: T;
-  serviceFee?: T;
-  paymentMode?: T;
-  depositType?: T;
-  depositValue?: T;
+  dlaPrzyczep?:
+    | T
+    | {
+        enabled?: T;
+        minUnits?: T;
+        serviceFee?: T;
+        paymentMode?: T;
+        depositType?: T;
+        depositValue?: T;
+      };
+  dlaRowerow?:
+    | T
+    | {
+        enabled?: T;
+        minUnits?: T;
+        serviceFee?: T;
+        paymentMode?: T;
+        depositType?: T;
+        depositValue?: T;
+      };
   regulaminPdf?: T;
   politykaPrywatnosciPdf?: T;
   paymentProviderDefault?: T;

@@ -1,4 +1,5 @@
 // src/lib/payload.ts
+
 type PayloadListResponse<T> = {
   docs: T[]
   totalDocs: number
@@ -14,6 +15,8 @@ export type MediaDoc = {
   filename?: string | null
 }
 
+export type ResourceType = 'przyczepa' | 'ebike'
+
 export type AddonDoc = {
   id: number | string
   name: string
@@ -21,31 +24,51 @@ export type AddonDoc = {
   pricingType: 'perBooking' | 'perDay'
   active: boolean
   maxQuantity?: number | null
+  dostepneDla?: ResourceType[] | null
 }
 
-export type TrailerDoc = {
+export type ResourceDoc = {
   id: number | string
+  typZasobu: ResourceType
   nazwa: string
   slug: string
   active: boolean
-  opisKrotki: string
-  opisDlugi: unknown
-  heroImage?: MediaDoc | number | string | null
-  gallery?: Array<{ image: MediaDoc | number | string }>
-  specyfikacja?: Array<{
-    title: string
-    items: Array<{ label: string; value: string }>
-  }>
+  iloscSztuk?: number | null
+
+  opisKrotki?: string | null
+  opisDlugi?: unknown
+
+  heroMedia?: MediaDoc | number | string | null
+  gallery?: Array<{ media: MediaDoc | number | string }>
+
+  specyfikacja?: Array<{ label: string; value: string }>
+
+  przyczepa?: {
+    dmc?: string | null
+    iloscOsob?: number | null
+  } | null
+
+  ebike?: {
+    marka?: string | null
+    model?: string | null
+    rozmiarRamy?: string | null
+    bateriaWh?: number | null
+    zasiegKm?: number | null
+    typ?: 'mtb' | 'city' | 'trekking' | 'gravel' | null
+  } | null
+
   cena?: {
-    basePricePerNight: number
+    jednostka: 'noc' | 'dzien'
+    basePrice: number
     seasonalPricing?: Array<{
       name: string
       dateFrom: string
       dateTo: string
-      pricePerNight: number
-      minNights?: number | null
+      price: number
+      minUnits?: number | null
     }>
-  }
+  } | null
+
   dodatki?: Array<AddonDoc | number | string> | null
 }
 
@@ -58,44 +81,38 @@ export type SiteSettings = {
   seoDescription?: string | null
 }
 
-export type BookingSettings = {
-  bookingEnabled: boolean
-  minNightsDefault: number
+// ✅ NOWE: ustawienia per typ zasobu (zgodne z globalem)
+export type BookingTypeSettings = {
+  minUnits: number
   serviceFee: number
   paymentMode: 'full' | 'deposit'
   depositType?: 'percent' | 'fixed' | null
   depositValue?: number | null
+}
+
+export type BookingSettings = {
+  dlaPrzyczep: BookingTypeSettings
+  dlaRowerow: BookingTypeSettings
   regulaminPdf?: MediaDoc | number | string | null
   politykaPrywatnosciPdf?: MediaDoc | number | string | null
   paymentProviderDefault: 'stripe' | 'p24'
 }
 
+
 /**
  * Railway / prod:
- * - ustaw NEXT_PUBLIC_SERVER_URL na publiczny URL Twojej apki (np. https://caravans.up.railway.app)
- *
+ * - ustaw NEXT_PUBLIC_SERVER_URL na publiczny URL Twojej apki
  * Lokalnie:
- * - NEXT_PUBLIC_SERVER_URL może być puste, wtedy użyjemy http://localhost:3000
+ * - fallback http://localhost:3000
  */
 function getBaseUrl() {
   const explicit = process.env.NEXT_PUBLIC_SERVER_URL
   if (explicit) return explicit.replace(/\/$/, '')
-
-  // Fallback lokalny
   return 'http://localhost:3000'
 }
 
-type PayloadFetchOpts = {
-  revalidate?: number
-}
+type PayloadFetchOpts = { revalidate?: number }
 
-/**
- * Ważne:
- * - Jak Payload/API jest dostępne -> zachowanie 1:1 (throw przy nie-ok status)
- * - Jak fetch "crashuje" (ECONNREFUSED w buildzie) -> zwracamy null, żeby nie ubić buildu.
- *
- * Dzięki temu runtime w prod działa normalnie, a build/CI nie jest loterią.
- */
 async function payloadFetch<T>(path: string, opts?: PayloadFetchOpts): Promise<T | null> {
   const baseUrl = getBaseUrl()
   const url = `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
@@ -107,20 +124,15 @@ async function payloadFetch<T>(path: string, opts?: PayloadFetchOpts): Promise<T
 
     if (!res.ok) {
       const text = await res.text().catch(() => '')
-      // zachowanie jak wcześniej: błąd "logiczny" (np. 401/404/500) ma być widoczny
       throw new Error(`Payload fetch failed: ${res.status} ${res.statusText} (${url}) ${text}`)
     }
 
     return (await res.json()) as T
   } catch (err: any) {
-    // To jest klucz na build/CI: ECONNREFUSED itp.
-    // Nie wywalamy całej aplikacji, tylko zwracamy null.
     const code = err?.cause?.code || err?.code
     if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT') {
       return null
     }
-
-    // Inne błędy zachowujemy jak wcześniej (żebyś nie ukrył realnych problemów)
     throw err
   }
 }
@@ -148,34 +160,49 @@ export async function getBookingSettings() {
   )
 }
 
-export async function listActiveTrailers(params?: { limit?: number; depth?: number }) {
+export async function listActiveResources(params?: {
+  limit?: number
+  depth?: number
+  type?: ResourceType | ''
+}) {
   const limit = params?.limit ?? 24
   const depth = params?.depth ?? 2
+  const type = params?.type ?? ''
+
   const qs = new URLSearchParams()
   qs.set('limit', String(limit))
   qs.set('depth', String(depth))
   qs.set('where[active][equals]', 'true')
   qs.set('sort', '-updatedAt')
 
-  const data = await payloadFetch<PayloadListResponse<TrailerDoc>>(
-    `/api/przyczepy?${qs.toString()}`,
-    { revalidate: 60 },
-  )
+  if (type) qs.set('where[typZasobu][equals]', type)
 
-  // Jeśli CMS niedostępny w build time -> pusta lista (UI już to ogarnia)
+  const data = await payloadFetch<PayloadListResponse<ResourceDoc>>(`/api/zasoby?${qs.toString()}`, {
+    revalidate: 60,
+  })
+
   return data?.docs ?? []
 }
 
-export async function getTrailerBySlug(slug: string) {
+export async function getResourceBySlug(slug: string) {
+  let safeSlug = slug
+
+  // jeśli slug przyszedł już zakodowany (%C3%B3 itd.), to go odkoduj
+  try {
+    safeSlug = decodeURIComponent(slug)
+  } catch {
+    // jakby był “dziwny”, to zostaw
+  }
+
   const qs = new URLSearchParams()
   qs.set('limit', '1')
   qs.set('depth', '3')
-  qs.set('where[slug][equals]', slug)
+  qs.set('where[slug][equals]', safeSlug)
 
-  const data = await payloadFetch<PayloadListResponse<TrailerDoc>>(
-    `/api/przyczepy?${qs.toString()}`,
-    { revalidate: 60 },
-  )
+  const data = await payloadFetch<PayloadListResponse<ResourceDoc>>(`/api/zasoby?${qs.toString()}`, {
+    revalidate: 60,
+  })
 
   return data?.docs?.[0] ?? null
 }
+

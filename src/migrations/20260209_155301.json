@@ -24,6 +24,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "typ_pliku": {
+          "name": "typ_pliku",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp(3) with time zone",
@@ -720,6 +726,89 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.dodatki_dostepne_dla": {
+      "name": "dodatki_dostepne_dla",
+      "schema": "",
+      "columns": {
+        "order": {
+          "name": "order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "enum_dodatki_dostepne_dla",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "dodatki_dostepne_dla_order_idx": {
+          "name": "dodatki_dostepne_dla_order_idx",
+          "columns": [
+            {
+              "expression": "order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "dodatki_dostepne_dla_parent_idx": {
+          "name": "dodatki_dostepne_dla_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "dodatki_dostepne_dla_parent_fk": {
+          "name": "dodatki_dostepne_dla_parent_fk",
+          "tableFrom": "dodatki_dostepne_dla",
+          "tableTo": "dodatki",
+          "columnsFrom": [
+            "parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.dodatki": {
       "name": "dodatki",
       "schema": "",
@@ -833,8 +922,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.przyczepy_gallery": {
-      "name": "przyczepy_gallery",
+    "public.zasoby_gallery": {
+      "name": "zasoby_gallery",
       "schema": "",
       "columns": {
         "_order": {
@@ -855,16 +944,16 @@
           "primaryKey": true,
           "notNull": true
         },
-        "image_id": {
-          "name": "image_id",
+        "media_id": {
+          "name": "media_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
         }
       },
       "indexes": {
-        "przyczepy_gallery_order_idx": {
-          "name": "przyczepy_gallery_order_idx",
+        "zasoby_gallery_order_idx": {
+          "name": "zasoby_gallery_order_idx",
           "columns": [
             {
               "expression": "_order",
@@ -878,8 +967,8 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_gallery_parent_id_idx": {
-          "name": "przyczepy_gallery_parent_id_idx",
+        "zasoby_gallery_parent_id_idx": {
+          "name": "zasoby_gallery_parent_id_idx",
           "columns": [
             {
               "expression": "_parent_id",
@@ -893,11 +982,11 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_gallery_image_idx": {
-          "name": "przyczepy_gallery_image_idx",
+        "zasoby_gallery_media_idx": {
+          "name": "zasoby_gallery_media_idx",
           "columns": [
             {
-              "expression": "image_id",
+              "expression": "media_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -910,12 +999,12 @@
         }
       },
       "foreignKeys": {
-        "przyczepy_gallery_image_id_media_id_fk": {
-          "name": "przyczepy_gallery_image_id_media_id_fk",
-          "tableFrom": "przyczepy_gallery",
+        "zasoby_gallery_media_id_media_id_fk": {
+          "name": "zasoby_gallery_media_id_media_id_fk",
+          "tableFrom": "zasoby_gallery",
           "tableTo": "media",
           "columnsFrom": [
-            "image_id"
+            "media_id"
           ],
           "columnsTo": [
             "id"
@@ -923,10 +1012,10 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "przyczepy_gallery_parent_id_fk": {
-          "name": "przyczepy_gallery_parent_id_fk",
-          "tableFrom": "przyczepy_gallery",
-          "tableTo": "przyczepy",
+        "zasoby_gallery_parent_id_fk": {
+          "name": "zasoby_gallery_parent_id_fk",
+          "tableFrom": "zasoby_gallery",
+          "tableTo": "zasoby",
           "columnsFrom": [
             "_parent_id"
           ],
@@ -943,8 +1032,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.przyczepy_specyfikacja_items": {
-      "name": "przyczepy_specyfikacja_items",
+    "public.zasoby_specyfikacja": {
+      "name": "zasoby_specyfikacja",
       "schema": "",
       "columns": {
         "_order": {
@@ -955,7 +1044,7 @@
         },
         "_parent_id": {
           "name": "_parent_id",
-          "type": "varchar",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -979,8 +1068,8 @@
         }
       },
       "indexes": {
-        "przyczepy_specyfikacja_items_order_idx": {
-          "name": "przyczepy_specyfikacja_items_order_idx",
+        "zasoby_specyfikacja_order_idx": {
+          "name": "zasoby_specyfikacja_order_idx",
           "columns": [
             {
               "expression": "_order",
@@ -994,8 +1083,8 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_specyfikacja_items_parent_id_idx": {
-          "name": "przyczepy_specyfikacja_items_parent_id_idx",
+        "zasoby_specyfikacja_parent_id_idx": {
+          "name": "zasoby_specyfikacja_parent_id_idx",
           "columns": [
             {
               "expression": "_parent_id",
@@ -1011,10 +1100,10 @@
         }
       },
       "foreignKeys": {
-        "przyczepy_specyfikacja_items_parent_id_fk": {
-          "name": "przyczepy_specyfikacja_items_parent_id_fk",
-          "tableFrom": "przyczepy_specyfikacja_items",
-          "tableTo": "przyczepy_specyfikacja",
+        "zasoby_specyfikacja_parent_id_fk": {
+          "name": "zasoby_specyfikacja_parent_id_fk",
+          "tableFrom": "zasoby_specyfikacja",
+          "tableTo": "zasoby",
           "columnsFrom": [
             "_parent_id"
           ],
@@ -1031,90 +1120,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.przyczepy_specyfikacja": {
-      "name": "przyczepy_specyfikacja",
-      "schema": "",
-      "columns": {
-        "_order": {
-          "name": "_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "_parent_id": {
-          "name": "_parent_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "varchar",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "przyczepy_specyfikacja_order_idx": {
-          "name": "przyczepy_specyfikacja_order_idx",
-          "columns": [
-            {
-              "expression": "_order",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "przyczepy_specyfikacja_parent_id_idx": {
-          "name": "przyczepy_specyfikacja_parent_id_idx",
-          "columns": [
-            {
-              "expression": "_parent_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "przyczepy_specyfikacja_parent_id_fk": {
-          "name": "przyczepy_specyfikacja_parent_id_fk",
-          "tableFrom": "przyczepy_specyfikacja",
-          "tableTo": "przyczepy",
-          "columnsFrom": [
-            "_parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.przyczepy_cena_seasonal_pricing": {
-      "name": "przyczepy_cena_seasonal_pricing",
+    "public.zasoby_cena_seasonal_pricing": {
+      "name": "zasoby_cena_seasonal_pricing",
       "schema": "",
       "columns": {
         "_order": {
@@ -1153,22 +1160,22 @@
           "primaryKey": false,
           "notNull": true
         },
-        "price_per_night": {
-          "name": "price_per_night",
+        "price": {
+          "name": "price",
           "type": "numeric",
           "primaryKey": false,
           "notNull": true
         },
-        "min_nights": {
-          "name": "min_nights",
+        "min_units": {
+          "name": "min_units",
           "type": "numeric",
           "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {
-        "przyczepy_cena_seasonal_pricing_order_idx": {
-          "name": "przyczepy_cena_seasonal_pricing_order_idx",
+        "zasoby_cena_seasonal_pricing_order_idx": {
+          "name": "zasoby_cena_seasonal_pricing_order_idx",
           "columns": [
             {
               "expression": "_order",
@@ -1182,8 +1189,8 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_cena_seasonal_pricing_parent_id_idx": {
-          "name": "przyczepy_cena_seasonal_pricing_parent_id_idx",
+        "zasoby_cena_seasonal_pricing_parent_id_idx": {
+          "name": "zasoby_cena_seasonal_pricing_parent_id_idx",
           "columns": [
             {
               "expression": "_parent_id",
@@ -1199,10 +1206,10 @@
         }
       },
       "foreignKeys": {
-        "przyczepy_cena_seasonal_pricing_parent_id_fk": {
-          "name": "przyczepy_cena_seasonal_pricing_parent_id_fk",
-          "tableFrom": "przyczepy_cena_seasonal_pricing",
-          "tableTo": "przyczepy",
+        "zasoby_cena_seasonal_pricing_parent_id_fk": {
+          "name": "zasoby_cena_seasonal_pricing_parent_id_fk",
+          "tableFrom": "zasoby_cena_seasonal_pricing",
+          "tableTo": "zasoby",
           "columnsFrom": [
             "_parent_id"
           ],
@@ -1219,8 +1226,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.przyczepy": {
-      "name": "przyczepy",
+    "public.zasoby": {
+      "name": "zasoby",
       "schema": "",
       "columns": {
         "id": {
@@ -1228,6 +1235,14 @@
           "type": "serial",
           "primaryKey": true,
           "notNull": true
+        },
+        "typ_zasobu": {
+          "name": "typ_zasobu",
+          "type": "enum_zasoby_typ_zasobu",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'przyczepa'"
         },
         "nazwa": {
           "name": "nazwa",
@@ -1267,14 +1282,71 @@
           "primaryKey": false,
           "notNull": false
         },
-        "hero_image_id": {
-          "name": "hero_image_id",
+        "hero_media_id": {
+          "name": "hero_media_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
-        "cena_base_price_per_night": {
-          "name": "cena_base_price_per_night",
+        "przyczepa_dmc": {
+          "name": "przyczepa_dmc",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "przyczepa_ilosc_osob": {
+          "name": "przyczepa_ilosc_osob",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ebike_marka": {
+          "name": "ebike_marka",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ebike_model": {
+          "name": "ebike_model",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ebike_rozmiar_ramy": {
+          "name": "ebike_rozmiar_ramy",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ebike_bateria_wh": {
+          "name": "ebike_bateria_wh",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ebike_zasieg_km": {
+          "name": "ebike_zasieg_km",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ebike_typ": {
+          "name": "ebike_typ",
+          "type": "enum_zasoby_ebike_typ",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cena_jednostka": {
+          "name": "cena_jednostka",
+          "type": "enum_zasoby_cena_jednostka",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'noc'"
+        },
+        "cena_base_price": {
+          "name": "cena_base_price",
           "type": "numeric",
           "primaryKey": false,
           "notNull": true
@@ -1295,8 +1367,23 @@
         }
       },
       "indexes": {
-        "przyczepy_nazwa_idx": {
-          "name": "przyczepy_nazwa_idx",
+        "zasoby_typ_zasobu_idx": {
+          "name": "zasoby_typ_zasobu_idx",
+          "columns": [
+            {
+              "expression": "typ_zasobu",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "zasoby_nazwa_idx": {
+          "name": "zasoby_nazwa_idx",
           "columns": [
             {
               "expression": "nazwa",
@@ -1310,8 +1397,8 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_slug_idx": {
-          "name": "przyczepy_slug_idx",
+        "zasoby_slug_idx": {
+          "name": "zasoby_slug_idx",
           "columns": [
             {
               "expression": "slug",
@@ -1325,8 +1412,8 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_active_idx": {
-          "name": "przyczepy_active_idx",
+        "zasoby_active_idx": {
+          "name": "zasoby_active_idx",
           "columns": [
             {
               "expression": "active",
@@ -1340,8 +1427,8 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_ilosc_sztuk_idx": {
-          "name": "przyczepy_ilosc_sztuk_idx",
+        "zasoby_ilosc_sztuk_idx": {
+          "name": "zasoby_ilosc_sztuk_idx",
           "columns": [
             {
               "expression": "ilosc_sztuk",
@@ -1355,11 +1442,11 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_hero_image_idx": {
-          "name": "przyczepy_hero_image_idx",
+        "zasoby_hero_media_idx": {
+          "name": "zasoby_hero_media_idx",
           "columns": [
             {
-              "expression": "hero_image_id",
+              "expression": "hero_media_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1370,8 +1457,8 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_updated_at_idx": {
-          "name": "przyczepy_updated_at_idx",
+        "zasoby_updated_at_idx": {
+          "name": "zasoby_updated_at_idx",
           "columns": [
             {
               "expression": "updated_at",
@@ -1385,8 +1472,8 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_created_at_idx": {
-          "name": "przyczepy_created_at_idx",
+        "zasoby_created_at_idx": {
+          "name": "zasoby_created_at_idx",
           "columns": [
             {
               "expression": "created_at",
@@ -1402,12 +1489,12 @@
         }
       },
       "foreignKeys": {
-        "przyczepy_hero_image_id_media_id_fk": {
-          "name": "przyczepy_hero_image_id_media_id_fk",
-          "tableFrom": "przyczepy",
+        "zasoby_hero_media_id_media_id_fk": {
+          "name": "zasoby_hero_media_id_media_id_fk",
+          "tableFrom": "zasoby",
           "tableTo": "media",
           "columnsFrom": [
-            "hero_image_id"
+            "hero_media_id"
           ],
           "columnsTo": [
             "id"
@@ -1422,8 +1509,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.przyczepy_rels": {
-      "name": "przyczepy_rels",
+    "public.zasoby_rels": {
+      "name": "zasoby_rels",
       "schema": "",
       "columns": {
         "id": {
@@ -1458,8 +1545,8 @@
         }
       },
       "indexes": {
-        "przyczepy_rels_order_idx": {
-          "name": "przyczepy_rels_order_idx",
+        "zasoby_rels_order_idx": {
+          "name": "zasoby_rels_order_idx",
           "columns": [
             {
               "expression": "order",
@@ -1473,8 +1560,8 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_rels_parent_idx": {
-          "name": "przyczepy_rels_parent_idx",
+        "zasoby_rels_parent_idx": {
+          "name": "zasoby_rels_parent_idx",
           "columns": [
             {
               "expression": "parent_id",
@@ -1488,8 +1575,8 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_rels_path_idx": {
-          "name": "przyczepy_rels_path_idx",
+        "zasoby_rels_path_idx": {
+          "name": "zasoby_rels_path_idx",
           "columns": [
             {
               "expression": "path",
@@ -1503,8 +1590,8 @@
           "method": "btree",
           "with": {}
         },
-        "przyczepy_rels_dodatki_id_idx": {
-          "name": "przyczepy_rels_dodatki_id_idx",
+        "zasoby_rels_dodatki_id_idx": {
+          "name": "zasoby_rels_dodatki_id_idx",
           "columns": [
             {
               "expression": "dodatki_id",
@@ -1520,10 +1607,10 @@
         }
       },
       "foreignKeys": {
-        "przyczepy_rels_parent_fk": {
-          "name": "przyczepy_rels_parent_fk",
-          "tableFrom": "przyczepy_rels",
-          "tableTo": "przyczepy",
+        "zasoby_rels_parent_fk": {
+          "name": "zasoby_rels_parent_fk",
+          "tableFrom": "zasoby_rels",
+          "tableTo": "zasoby",
           "columnsFrom": [
             "parent_id"
           ],
@@ -1533,9 +1620,9 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "przyczepy_rels_dodatki_fk": {
-          "name": "przyczepy_rels_dodatki_fk",
-          "tableFrom": "przyczepy_rels",
+        "zasoby_rels_dodatki_fk": {
+          "name": "zasoby_rels_dodatki_fk",
+          "tableFrom": "zasoby_rels",
           "tableTo": "dodatki",
           "columnsFrom": [
             "dodatki_id"
@@ -1670,8 +1757,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.rezerwacje_snapshot_lodging_breakdown": {
-      "name": "rezerwacje_snapshot_lodging_breakdown",
+    "public.rezerwacje_snapshot_breakdown": {
+      "name": "rezerwacje_snapshot_breakdown",
       "schema": "",
       "columns": {
         "_order": {
@@ -1698,14 +1785,14 @@
           "primaryKey": false,
           "notNull": true
         },
-        "nights": {
-          "name": "nights",
+        "units": {
+          "name": "units",
           "type": "numeric",
           "primaryKey": false,
           "notNull": true
         },
-        "price_per_night": {
-          "name": "price_per_night",
+        "price_per_unit": {
+          "name": "price_per_unit",
           "type": "numeric",
           "primaryKey": false,
           "notNull": true
@@ -1718,8 +1805,8 @@
         }
       },
       "indexes": {
-        "rezerwacje_snapshot_lodging_breakdown_order_idx": {
-          "name": "rezerwacje_snapshot_lodging_breakdown_order_idx",
+        "rezerwacje_snapshot_breakdown_order_idx": {
+          "name": "rezerwacje_snapshot_breakdown_order_idx",
           "columns": [
             {
               "expression": "_order",
@@ -1733,8 +1820,8 @@
           "method": "btree",
           "with": {}
         },
-        "rezerwacje_snapshot_lodging_breakdown_parent_id_idx": {
-          "name": "rezerwacje_snapshot_lodging_breakdown_parent_id_idx",
+        "rezerwacje_snapshot_breakdown_parent_id_idx": {
+          "name": "rezerwacje_snapshot_breakdown_parent_id_idx",
           "columns": [
             {
               "expression": "_parent_id",
@@ -1750,9 +1837,9 @@
         }
       },
       "foreignKeys": {
-        "rezerwacje_snapshot_lodging_breakdown_parent_id_fk": {
-          "name": "rezerwacje_snapshot_lodging_breakdown_parent_id_fk",
-          "tableFrom": "rezerwacje_snapshot_lodging_breakdown",
+        "rezerwacje_snapshot_breakdown_parent_id_fk": {
+          "name": "rezerwacje_snapshot_breakdown_parent_id_fk",
+          "tableFrom": "rezerwacje_snapshot_breakdown",
           "tableTo": "rezerwacje",
           "columnsFrom": [
             "_parent_id"
@@ -1887,11 +1974,18 @@
           "primaryKey": true,
           "notNull": true
         },
-        "przyczepa_id": {
-          "name": "przyczepa_id",
+        "zasob_id": {
+          "name": "zasob_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "ilosc": {
+          "name": "ilosc",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         },
         "start_date": {
           "name": "start_date",
@@ -1981,26 +2075,20 @@
           "primaryKey": false,
           "notNull": false
         },
-        "snapshot_nights": {
-          "name": "snapshot_nights",
+        "snapshot_units": {
+          "name": "snapshot_units",
           "type": "numeric",
           "primaryKey": false,
           "notNull": false
         },
-        "snapshot_price_per_night": {
-          "name": "snapshot_price_per_night",
-          "type": "numeric",
+        "snapshot_unit_type": {
+          "name": "snapshot_unit_type",
+          "type": "varchar",
           "primaryKey": false,
           "notNull": false
         },
-        "snapshot_standard_nights": {
-          "name": "snapshot_standard_nights",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "snapshot_seasonal_nights": {
-          "name": "snapshot_seasonal_nights",
+        "snapshot_base_price": {
+          "name": "snapshot_base_price",
           "type": "numeric",
           "primaryKey": false,
           "notNull": false
@@ -2033,11 +2121,11 @@
         }
       },
       "indexes": {
-        "rezerwacje_przyczepa_idx": {
-          "name": "rezerwacje_przyczepa_idx",
+        "rezerwacje_zasob_idx": {
+          "name": "rezerwacje_zasob_idx",
           "columns": [
             {
-              "expression": "przyczepa_id",
+              "expression": "zasob_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2125,12 +2213,12 @@
         }
       },
       "foreignKeys": {
-        "rezerwacje_przyczepa_id_przyczepy_id_fk": {
-          "name": "rezerwacje_przyczepa_id_przyczepy_id_fk",
+        "rezerwacje_zasob_id_zasoby_id_fk": {
+          "name": "rezerwacje_zasob_id_zasoby_id_fk",
           "tableFrom": "rezerwacje",
-          "tableTo": "przyczepy",
+          "tableTo": "zasoby",
           "columnsFrom": [
-            "przyczepa_id"
+            "zasob_id"
           ],
           "columnsTo": [
             "id"
@@ -2155,8 +2243,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "przyczepa_id": {
-          "name": "przyczepa_id",
+        "zasob_id": {
+          "name": "zasob_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
@@ -2209,11 +2297,11 @@
         }
       },
       "indexes": {
-        "blokady_przyczepa_idx": {
-          "name": "blokady_przyczepa_idx",
+        "blokady_zasob_idx": {
+          "name": "blokady_zasob_idx",
           "columns": [
             {
-              "expression": "przyczepa_id",
+              "expression": "zasob_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2301,12 +2389,12 @@
         }
       },
       "foreignKeys": {
-        "blokady_przyczepa_id_przyczepy_id_fk": {
-          "name": "blokady_przyczepa_id_przyczepy_id_fk",
+        "blokady_zasob_id_zasoby_id_fk": {
+          "name": "blokady_zasob_id_zasoby_id_fk",
           "tableFrom": "blokady",
-          "tableTo": "przyczepy",
+          "tableTo": "zasoby",
           "columnsFrom": [
-            "przyczepa_id"
+            "zasob_id"
           ],
           "columnsTo": [
             "id"
@@ -2659,8 +2747,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "przyczepy_id": {
-          "name": "przyczepy_id",
+        "zasoby_id": {
+          "name": "zasoby_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -2775,11 +2863,11 @@
           "method": "btree",
           "with": {}
         },
-        "payload_locked_documents_rels_przyczepy_id_idx": {
-          "name": "payload_locked_documents_rels_przyczepy_id_idx",
+        "payload_locked_documents_rels_zasoby_id_idx": {
+          "name": "payload_locked_documents_rels_zasoby_id_idx",
           "columns": [
             {
-              "expression": "przyczepy_id",
+              "expression": "zasoby_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2889,12 +2977,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "payload_locked_documents_rels_przyczepy_fk": {
-          "name": "payload_locked_documents_rels_przyczepy_fk",
+        "payload_locked_documents_rels_zasoby_fk": {
+          "name": "payload_locked_documents_rels_zasoby_fk",
           "tableFrom": "payload_locked_documents_rels",
-          "tableTo": "przyczepy",
+          "tableTo": "zasoby",
           "columnsFrom": [
-            "przyczepy_id"
+            "zasoby_id"
           ],
           "columnsTo": [
             "id"
@@ -3330,41 +3418,62 @@
           "notNull": true,
           "default": true
         },
-        "min_nights_default": {
-          "name": "min_nights_default",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "service_fee": {
-          "name": "service_fee",
+        "ogolne_service_fee": {
+          "name": "ogolne_service_fee",
           "type": "numeric",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "payment_mode": {
-          "name": "payment_mode",
-          "type": "enum_ustawienia_rezerwacji_payment_mode",
+        "ogolne_payment_mode": {
+          "name": "ogolne_payment_mode",
+          "type": "enum_ustawienia_rezerwacji_ogolne_payment_mode",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
           "default": "'full'"
         },
-        "deposit_type": {
-          "name": "deposit_type",
-          "type": "enum_ustawienia_rezerwacji_deposit_type",
+        "ogolne_deposit_type": {
+          "name": "ogolne_deposit_type",
+          "type": "enum_ustawienia_rezerwacji_ogolne_deposit_type",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": false,
           "default": "'percent'"
         },
-        "deposit_value": {
-          "name": "deposit_value",
+        "ogolne_deposit_value": {
+          "name": "ogolne_deposit_value",
           "type": "numeric",
           "primaryKey": false,
           "notNull": false
+        },
+        "dla_przyczep_min_units": {
+          "name": "dla_przyczep_min_units",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "dla_przyczep_service_fee": {
+          "name": "dla_przyczep_service_fee",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "dla_rowerow_min_units": {
+          "name": "dla_rowerow_min_units",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "dla_rowerow_service_fee": {
+          "name": "dla_rowerow_service_fee",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "regulamin_pdf_id": {
           "name": "regulamin_pdf_id",
@@ -3467,12 +3576,46 @@
     }
   },
   "enums": {
+    "public.enum_dodatki_dostepne_dla": {
+      "name": "enum_dodatki_dostepne_dla",
+      "schema": "public",
+      "values": [
+        "przyczepa",
+        "ebike"
+      ]
+    },
     "public.enum_dodatki_pricing_type": {
       "name": "enum_dodatki_pricing_type",
       "schema": "public",
       "values": [
         "perBooking",
         "perDay"
+      ]
+    },
+    "public.enum_zasoby_typ_zasobu": {
+      "name": "enum_zasoby_typ_zasobu",
+      "schema": "public",
+      "values": [
+        "przyczepa",
+        "ebike"
+      ]
+    },
+    "public.enum_zasoby_ebike_typ": {
+      "name": "enum_zasoby_ebike_typ",
+      "schema": "public",
+      "values": [
+        "mtb",
+        "city",
+        "trekking",
+        "gravel"
+      ]
+    },
+    "public.enum_zasoby_cena_jednostka": {
+      "name": "enum_zasoby_cena_jednostka",
+      "schema": "public",
+      "values": [
+        "noc",
+        "dzien"
       ]
     },
     "public.enum_rezerwacje_snapshot_extras_snapshot_pricing_type": {
@@ -3513,16 +3656,16 @@
         "refunded"
       ]
     },
-    "public.enum_ustawienia_rezerwacji_payment_mode": {
-      "name": "enum_ustawienia_rezerwacji_payment_mode",
+    "public.enum_ustawienia_rezerwacji_ogolne_payment_mode": {
+      "name": "enum_ustawienia_rezerwacji_ogolne_payment_mode",
       "schema": "public",
       "values": [
         "full",
         "deposit"
       ]
     },
-    "public.enum_ustawienia_rezerwacji_deposit_type": {
-      "name": "enum_ustawienia_rezerwacji_deposit_type",
+    "public.enum_ustawienia_rezerwacji_ogolne_deposit_type": {
+      "name": "enum_ustawienia_rezerwacji_ogolne_deposit_type",
       "schema": "public",
       "values": [
         "percent",
@@ -3548,6 +3691,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "f001b2b5-daec-4fc4-954f-cb099085e0b7",
+  "id": "edf41cf0-05eb-4470-aaaf-245daa348767",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }

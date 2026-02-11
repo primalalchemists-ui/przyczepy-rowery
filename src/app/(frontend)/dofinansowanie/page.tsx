@@ -19,7 +19,7 @@ export default function DofinansowaniePage() {
           Informacja o dofinansowaniu projektu
         </h1>
 
-        <p>
+        {/* <p>
           MAT S.C. realizuje projekt pn.{' '}
           <b>
             „Rozwój Regionu – śląskie dzięki inwestycji w nowy sprzęt”
@@ -81,7 +81,7 @@ export default function DofinansowaniePage() {
 
         <p className="text-xs opacity-70">
           #KorzyściDlaCiebie #NextGenerationEU #FunduszeUE
-        </p>
+        </p> */}
       </section>
     </main>
   )

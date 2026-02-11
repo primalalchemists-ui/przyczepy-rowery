@@ -8,18 +8,18 @@ function isValidNipFormat(v: string) {
 
 export const bookingSchema = z
   .object({
-    trailerId: z.string().min(1, 'Wybierz przyczepę.'),
+    trailerId: z.string().min(1, 'Wybierz zasób.'),
     startDate: z.string().min(1, 'Wybierz datę rozpoczęcia.'),
     endDate: z.string().min(1, 'Wybierz datę zakończenia.'),
+
+    // ✅ NOWE: ilość sztuk (dla e-bike w UI, dla przyczepy zawsze 1)
+    ilosc: z.coerce.number().int().min(1).default(1),
 
     fullName: z.string().min(2, 'Podaj imię i nazwisko.'),
     email: z.string().email('Podaj poprawny e-mail.'),
     phone: z.string().min(6, 'Podaj poprawny numer telefonu.'),
 
-    // ✅ NOWE
     wantsInvoice: z.boolean().default(false),
-
-    // NIP będzie wymagany warunkowo
     nip: z.string().optional(),
 
     notes: z.string().optional(),

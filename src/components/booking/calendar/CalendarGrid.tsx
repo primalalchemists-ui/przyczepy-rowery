@@ -18,14 +18,17 @@ export function CalendarGrid(props: {
   endDate: string
   onPick: (iso: string) => void
 
-  // ✅ NOWE (opcjonalne) – jeśli nie podasz, loader się nie pokaże
+  // ✅ NOWE: tryb zaznaczania
+  unitType?: 'noc' | 'dzien'
+
+  // ✅ loader
   loading?: boolean
   loadingLabel?: string
   monthKey?: string | number
 }) {
   const weeks = chunk(props.grid, 7)
-
   const isGatedLoading = Boolean(props.loading)
+  const unitType = props.unitType ?? 'noc'
 
   return (
     <div className="relative w-full min-w-0 overflow-hidden">
@@ -33,7 +36,7 @@ export function CalendarGrid(props: {
         key={props.monthKey ?? 'calendar'}
         initial={{ opacity: 0 }}
         animate={{ opacity: isGatedLoading ? 0 : 1 }}
-        transition={{ duration: 0.35, ease: 'easeOut' }} // ✅ jak w ResourceGrid
+        transition={{ duration: 0.35, ease: 'easeOut' }}
         style={{ pointerEvents: isGatedLoading ? 'none' : 'auto' }}
       >
         <table className="w-full min-w-0 table-fixed border-separate border-spacing-1" aria-label="Kalendarz dostępności">
@@ -62,17 +65,17 @@ export function CalendarGrid(props: {
                   const iso = cell.iso
                   const status = dayStatusOf(iso, props.bookedSet, props.unavailableSet)
 
+                  // ✅ zaznaczanie "w środku zakresu" (zawsze start <= day < end)
                   const selectedNights =
                     props.startDate && props.endDate ? isNightSelected(iso, props.startDate, props.endDate) : false
 
-                  const oneNightEnd = props.startDate ? addDaysISO_local(props.startDate, 1) : ''
-                  const isOneNight = Boolean(props.startDate && props.endDate && props.endDate === oneNightEnd)
+                  // ✅ DLA DNIA (ebike) NIE RYSUJEMY RETURN (bo wygląda jak 2 dni)
+                  const selectedReturn =
+                    unitType === 'noc' && props.endDate ? isReturnSelected(iso, props.endDate) : false
 
-                  // ✅ ring na zwrocie ZAWSZE (też przy 1 nocy)
-                  const selectedReturn = props.endDate ? isReturnSelected(iso, props.endDate) : false
-
-                  // ✅ zwrot (endDate) może być booked/unavailable — nadal ma być klikalny
+                  // ✅ return może być klikany mimo booked/unavailable — ALE TYLKO DLA NOCY
                   const isReturnCandidate =
+                    unitType === 'noc' &&
                     Boolean(props.startDate) &&
                     fromISOish(iso) > fromISOish(props.startDate) &&
                     iso === props.endDate
@@ -93,6 +96,8 @@ export function CalendarGrid(props: {
                         : 'bg-black/70 text-white'
 
                   const selectedStart = Boolean(props.startDate && iso === props.startDate)
+
+                  // ✅ ring: start + zaznaczone dni + (return tylko noc)
                   const ring = selectedStart || selectedNights || selectedReturn ? 'ring-2 ring-black' : ''
 
                   const label =
@@ -134,7 +139,7 @@ export function CalendarGrid(props: {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }} // ✅ jak w ResourceGrid
+            transition={{ duration: 0.25, ease: 'easeOut' }}
             className="absolute inset-0 grid place-items-center bg-white/70 backdrop-blur-sm"
           >
             <div className="grid place-items-center gap-3">
@@ -150,18 +155,7 @@ export function CalendarGrid(props: {
   )
 }
 
-// local helper (bez importów żeby nie mieszać)
 function fromISOish(iso: string) {
   const [y, m, d] = iso.split('-').map((x) => Number(x))
   return new Date(y, m - 1, d).getTime()
-}
-
-function addDaysISO_local(iso: string, days: number) {
-  const [y, m, d] = iso.split('-').map((x) => Number(x))
-  const dt = new Date(y, m - 1, d)
-  dt.setDate(dt.getDate() + days)
-  const yy = dt.getFullYear()
-  const mm = String(dt.getMonth() + 1).padStart(2, '0')
-  const dd = String(dt.getDate()).padStart(2, '0')
-  return `${yy}-${mm}-${dd}`
 }

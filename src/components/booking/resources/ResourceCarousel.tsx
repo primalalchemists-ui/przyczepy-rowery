@@ -2,20 +2,24 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import type { TrailerDoc } from '@/lib/payload'
+
+import type { ResourceDoc } from '@/lib/payload'
 import { Button } from '@/components/ui/button'
 import { toId } from '@/lib/booking/utils'
-import { TrailerCard } from './TrailerCard'
+import { ResourceCard } from './ResourceCard'
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
 }
 
-export function TrailerCarousel(props: {
-  trailers: TrailerDoc[]
+export function ResourceCarousel(props: {
+  resources: ResourceDoc[]
   selectedId: string
   onSelect: (id: string) => void
+  ariaLabel?: string
 }) {
+  const resources = Array.isArray(props.resources) ? props.resources : []
+
   const frameRef = useRef<HTMLDivElement | null>(null)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
 
@@ -24,15 +28,16 @@ export function TrailerCarousel(props: {
   const [isOverflowing, setIsOverflowing] = useState(false)
   const [cardWidth, setCardWidth] = useState<number>(340)
 
-  const GAP = 16 // gap-4
-  const PEEK_MOBILE = 18 // ustaw 0 jeśli nie chcesz podglądu kolejnej karty
+  const GAP = 16
+  const PEEK_MOBILE = 18
   const MIN_CARD = 280
   const MAX_CARD = 380
 
   const selectedIndex = useMemo(() => {
-    const idx = props.trailers.findIndex((t) => toId(t.id) === props.selectedId)
-    return Math.max(0, idx)
-  }, [props.trailers, props.selectedId])
+    if (!resources.length) return 0
+    const idx = resources.findIndex((r) => toId((r as any).id) === props.selectedId)
+    return idx >= 0 ? idx : 0
+  }, [resources, props.selectedId])
 
   function updateEdges() {
     const el = scrollerRef.current
@@ -49,7 +54,7 @@ export function TrailerCarousel(props: {
     el.scrollBy({ left: dir === 'left' ? -(cardWidth + GAP) : cardWidth + GAP, behavior: 'smooth' })
   }
 
-  // ✅ szerokość kart liczona z szerokości KOLUMNy (czyli dokładnie jak kalendarz)
+  // Responsywna szerokość karty
   useEffect(() => {
     const frame = frameRef.current
     if (!frame) return
@@ -57,9 +62,6 @@ export function TrailerCarousel(props: {
     const ro = new ResizeObserver(() => {
       const w = frame.clientWidth
       const isMdUp = window.matchMedia('(min-width: 768px)').matches
-
-      // w desktop/tablet chcemy 3/2/1 karty, ale UWAGA:
-      // NIE odejmujemy strzałek, bo strzałki są NAD karuzelą, nie obok.
       const available = w
 
       let cardsPerView = 1
@@ -80,9 +82,11 @@ export function TrailerCarousel(props: {
     return () => ro.disconnect()
   }, [])
 
+  // Edges / scroll state
   useEffect(() => {
     const el = scrollerRef.current
     if (!el) return
+
     updateEdges()
 
     const onScroll = () => updateEdges()
@@ -95,6 +99,7 @@ export function TrailerCarousel(props: {
     }
   }, [cardWidth])
 
+  // Scroll do wybranego elementu
   useEffect(() => {
     const el = scrollerRef.current
     if (!el) return
@@ -102,16 +107,15 @@ export function TrailerCarousel(props: {
     if (!child) return
     child.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
     setTimeout(updateEdges, 120)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIndex])
 
-  return (
-    <section aria-label="Wybór przyczepy" className="grid gap-3">
-      {/* ✅ KLUCZ: żadnego mx-auto i żadnego max-w[1100] -> bierze szerokość kolumny (jak kalendarz) */}
-      <div ref={frameRef} className="w-full min-w-0">
-        {/* ✅ STRZAŁKI NA GÓRZE */}
-        <div className="flex items-center justify-between gap-3">
-          {/* <h3 className="text-sm font-medium opacity-0">Wybierz przyczepę</h3> */}
+  if (!resources.length) return null
 
+  return (
+    <section aria-label={props.ariaLabel ?? 'Wybór zasobu'} className="grid gap-3">
+      <div ref={frameRef} className="w-full min-w-0">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 mb-2">
             <Button
               type="button"
@@ -119,10 +123,10 @@ export function TrailerCarousel(props: {
               size="icon"
               className="h-9 w-9 cursor-pointer"
               onClick={() => scrollByCard('left')}
-              aria-label="Przewiń listę przyczep w lewo"
+              aria-label="Przewiń listę w lewo"
               disabled={!isOverflowing || !canLeft}
             >
-              <ChevronLeft className="h-4 w-4 cursor-pointer" />
+              <ChevronLeft className="h-4 w-4" />
             </Button>
 
             <Button
@@ -131,7 +135,7 @@ export function TrailerCarousel(props: {
               size="icon"
               className="h-9 w-9 cursor-pointer"
               onClick={() => scrollByCard('right')}
-              aria-label="Przewiń listę przyczep w prawo"
+              aria-label="Przewiń listę w prawo"
               disabled={!isOverflowing || !canRight}
             >
               <ChevronRight className="h-4 w-4" />
@@ -139,18 +143,14 @@ export function TrailerCarousel(props: {
           </div>
         </div>
 
-        {/* ✅ KARTY ZACZYNAJĄ OD LEWEJ i NIE WYCHODZĄ POZA KALENDARZ */}
         <div
           ref={scrollerRef}
           role="list"
-          aria-label="Lista przyczep"
+          aria-label="Lista zasobów"
           className={[
             'no-scrollbar flex gap-4 overflow-x-auto overflow-y-visible py-2',
             'min-w-0 touch-pan-x overscroll-x-contain scroll-smooth',
-            // żadnego centrowania – zawsze lewa krawędź
-            'justify-start',
-            // żeby pierwszy card nie przyklejał się do krawędzi na mobile:
-            'px-1 sm:px-0',
+            'justify-start px-1 sm:px-0',
           ].join(' ')}
           style={{
             scrollSnapType: 'x mandatory',
@@ -158,22 +158,18 @@ export function TrailerCarousel(props: {
             scrollPaddingRight: '12px',
           }}
         >
-          {props.trailers.map((t) => {
-            const id = toId(t.id)
+          {resources.map((r) => {
+            const id = toId((r as any).id)
             const selected = id === props.selectedId
 
             return (
               <div
                 key={id}
-                data-card
                 role="listitem"
                 className="shrink-0"
-                style={{
-                  width: `${cardWidth}px`,
-                  scrollSnapAlign: 'start',
-                }}
+                style={{ width: `${cardWidth}px`, scrollSnapAlign: 'start' }}
               >
-                <TrailerCard trailer={t} selected={selected} onSelect={() => props.onSelect(id)} />
+                <ResourceCard zasob={r} selected={selected} onSelect={() => props.onSelect(id)} />
               </div>
             )
           })}

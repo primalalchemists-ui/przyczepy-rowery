@@ -1,82 +1,136 @@
 // src/payload/globals/ustawienia-rezerwacji.ts
 import type { GlobalConfig } from 'payload'
 
+const paymentFields = (labelPrefix: string) => [
+  {
+    name: 'paymentMode',
+    label: `${labelPrefix}: Tryb płatności`,
+    type: 'select' as const,
+    required: true,
+    defaultValue: 'full',
+    options: [
+      { label: 'Całość', value: 'full' },
+      { label: 'Zaliczka', value: 'deposit' },
+    ],
+  },
+  {
+    name: 'depositType',
+    label: `${labelPrefix}: Rodzaj zaliczki`,
+    type: 'select' as const,
+    required: true,
+    defaultValue: 'percent',
+    options: [
+      { label: 'Procent', value: 'percent' },
+      { label: 'Kwota stała', value: 'fixed' },
+    ],
+    admin: { condition: (_: any, s: any) => s?.paymentMode === 'deposit' },
+  },
+  {
+    name: 'depositValue',
+    label: `${labelPrefix}: Wartość zaliczki`,
+    type: 'number' as const,
+    required: false,
+    min: 0,
+    admin: {
+      step: 0.01,
+      condition: (_: any, s: any) => s?.paymentMode === 'deposit',
+      description: 'Jeśli procent: np. 30 = 30%. Jeśli kwota: wartość w PLN.',
+    },
+  },
+]
+
 export const UstawieniaRezerwacji: GlobalConfig = {
   slug: 'ustawienia-rezerwacji',
   label: 'Ustawienia rezerwacji',
-  admin: {
-    group: 'Ustawienia',
-  },
-  access: {
-    read: () => true,
-  },
+  admin: { group: 'Ustawienia' },
+  access: { read: () => true },
   fields: [
     {
-      name: 'bookingEnabled',
-      label: 'Rezerwacje włączone',
-      type: 'checkbox',
-      required: true,
-      defaultValue: true,
-      admin: {
-        description: 'Wyłącza globalnie możliwość tworzenia rezerwacji (poza blokadami terminów).',
-      },
-    },
-    {
-      name: 'minNightsDefault',
-      label: 'Minimalna liczba nocy (domyślnie)',
-      type: 'number',
-      required: true,
-      min: 1,
-      defaultValue: 1,
-      admin: {
-        description: 'Minimalna liczba nocy dla rezerwacji (o ile sezon nie narzuca innej).',
-      },
-    },
-    {
-      name: 'serviceFee',
-      label: 'Opłata serwisowa',
-      type: 'number',
-      required: true,
-      min: 0,
-      defaultValue: 0,
-      admin: { step: 0.01, description: 'Kwota doliczana do każdej rezerwacji.' },
-    },
-    {
-      name: 'paymentMode',
-      label: 'Tryb płatności',
-      type: 'select',
-      required: true,
-      defaultValue: 'full',
-      options: [
-        { label: 'Całość', value: 'full' },
-        { label: 'Zaliczka', value: 'deposit' },
+      name: 'dlaPrzyczep',
+      label: 'Ustawienia dla przyczep',
+      type: 'group',
+      fields: [
+        {
+          name: 'enabled',
+          label: 'Rezerwacje dla przyczep włączone',
+          type: 'checkbox',
+          required: true,
+          defaultValue: true,
+        },
+        {
+          name: 'minUnits',
+          label: 'Minimalna liczba nocy',
+          type: 'number',
+          required: true,
+          min: 1,
+          defaultValue: 1,
+          admin: { condition: (_: any, s: any) => s?.enabled !== false },
+        },
+        {
+          name: 'serviceFee',
+          label: 'Opłata serwisowa (przyczepy)',
+          type: 'number',
+          required: true,
+          min: 0,
+          defaultValue: 0,
+          admin: {
+            step: 0.01,
+            condition: (_: any, s: any) => s?.enabled !== false,
+          },
+        },
+        ...paymentFields('Przyczepy').map((f) => ({
+          ...f,
+          admin: {
+            ...(f as any).admin,
+            condition: (_: any, s: any) =>
+              s?.enabled !== false && (f as any)?.admin?.condition?.(_, s) !== false,
+          },
+        })),
       ],
     },
+
     {
-      name: 'depositType',
-      label: 'Rodzaj zaliczki',
-      type: 'select',
-      required: true,
-      defaultValue: 'percent',
-      options: [
-        { label: 'Procent', value: 'percent' },
-        { label: 'Kwota stała', value: 'fixed' },
+      name: 'dlaRowerow',
+      label: 'Ustawienia dla e-bike',
+      type: 'group',
+      fields: [
+        {
+          name: 'enabled',
+          label: 'Rezerwacje dla e-bike włączone',
+          type: 'checkbox',
+          required: true,
+          defaultValue: true,
+        },
+        {
+          name: 'minUnits',
+          label: 'Minimalna liczba dni',
+          type: 'number',
+          required: true,
+          min: 1,
+          defaultValue: 1,
+          admin: { condition: (_: any, s: any) => s?.enabled !== false },
+        },
+        {
+          name: 'serviceFee',
+          label: 'Opłata serwisowa (e-bike)',
+          type: 'number',
+          required: true,
+          min: 0,
+          defaultValue: 0,
+          admin: {
+            step: 0.01,
+            condition: (_: any, s: any) => s?.enabled !== false,
+          },
+        },
+        ...paymentFields('E-bike').map((f) => ({
+          ...f,
+          admin: {
+            ...(f as any).admin,
+            condition: (_: any, s: any) =>
+              s?.enabled !== false && (f as any)?.admin?.condition?.(_, s) !== false,
+          },
+        })),
       ],
-      admin: {
-        condition: (_, siblingData) => siblingData?.paymentMode === 'deposit',
-      },
-    },
-    {
-      name: 'depositValue',
-      label: 'Wartość zaliczki',
-      type: 'number',
-      required: false,
-      min: 0,
-      admin: {
-        step: 0.01,
-        condition: (_, siblingData) => siblingData?.paymentMode === 'deposit',
-        description: 'Jeśli procent: np. 30 = 30%. Jeśli kwota: wartość w PLN.',
-      },
     },
 
     {
@@ -85,7 +139,6 @@ export const UstawieniaRezerwacji: GlobalConfig = {
       type: 'upload',
       relationTo: 'media',
       required: false,
-      admin: { description: 'PDF regulaminu (upload do Media).' },
       filterOptions: { mimeType: { equals: 'application/pdf' } },
     },
     {
@@ -94,7 +147,6 @@ export const UstawieniaRezerwacji: GlobalConfig = {
       type: 'upload',
       relationTo: 'media',
       required: false,
-      admin: { description: 'PDF polityki prywatności (upload do Media).' },
       filterOptions: { mimeType: { equals: 'application/pdf' } },
     },
 

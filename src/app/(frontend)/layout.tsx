@@ -3,19 +3,32 @@ export const revalidate = 0
 
 // src/app/(frontend)/layout.tsx
 import type { ReactNode } from 'react'
+import { Lato } from 'next/font/google'
 import { getSiteSettings, getBookingSettings } from '@/lib/payload'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
-import "./globals.css"
+import './globals.css'
 
+const lato = Lato({
+  subsets: ['latin'],
+  weight: ['100', '300', '400', '700', '900'],
+  display: 'swap',
+  variable: '--font-lato',
+})
 
 export default async function FrontendLayout({ children }: { children: ReactNode }) {
   const site = await getSiteSettings()
   const booking = await getBookingSettings()
 
   return (
-    <html lang="pl">
-      <body className='bg-gradient-to-b from-[hsl(var(--brand-stone))] to-white'>
+    <html lang="pl" className={lato.variable}>
+      <body
+        className="min-h-dvh bg-background text-foreground flex flex-col"
+        style={{
+          fontFamily:
+            'var(--font-lato), system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
+        }}
+      >
         {/* Skip link – WCAG 2.1 */}
         <a
           href="#main"
@@ -25,9 +38,11 @@ export default async function FrontendLayout({ children }: { children: ReactNode
         </a>
 
         <SiteHeader siteName={site?.siteName ?? 'Caravans'} />
-        <div className="h-full">
-          <main className="mx-auto w-full max-w-[1400px] md:px-4 md:py-8 min-h-dvh">{children}</main>
-        </div>
+
+        {/* ✅ flex-1 wypycha stopkę na dół */}
+        <main id="main" className="flex-1 mx-auto w-full max-w-[1400px] md:px-4">
+          {children}
+        </main>
 
         <SiteFooter site={site} />
       </body>

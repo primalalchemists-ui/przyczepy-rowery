@@ -2,7 +2,7 @@ import { Caravan, CalendarCheck2, CreditCard } from "lucide-react"
 
 const steps = [
   {
-    title: "Wybierz przyczepę",
+    title: "Wybierz",
     desc: "Wejdź w szczegóły i sprawdź opis, galerię oraz cenę.",
     icon: Caravan,
   },

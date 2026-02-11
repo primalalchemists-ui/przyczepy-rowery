@@ -21,15 +21,18 @@ import { CalendarMonthNav } from './CalendarMonthNav'
 import { CalendarGrid } from './CalendarGrid'
 
 export function DateRangePlaceholder(props: {
-  trailerId?: string
+  resourceId?: string
   startDate: string
   endDate: string
   onChange: (v: { startDate: string; endDate: string }) => void
   availability?: Availability
-
-  // ✅ NEW: trigger do refetch po udanej rezerwacji
   forceKey?: number
+
+  // ✅ jednostka wyboru
+  unitType?: 'noc' | 'dzien'
 }) {
+  const unitType = props.unitType ?? 'noc'
+
   const minMonth = useMemo(() => startOfMonth(startOfToday()), [])
   const todayISO = useMemo(() => getTodayISO(), [])
 
@@ -52,28 +55,27 @@ export function DateRangePlaceholder(props: {
   const range = useMemo(() => gridToRange(grid, month), [grid, month])
 
   const { availability: apiAvailability, loading } = useAvailability({
-    trailerId: props.trailerId,
+    resourceId: props.resourceId,
     range,
-    enabled: Boolean(props.trailerId),
+    enabled: Boolean(props.resourceId),
     forceKey: props.forceKey,
   })
 
-  // ✅ fetchedOnce reset na zmianę trailerId
   const [fetchedOnce, setFetchedOnce] = useState(false)
 
   useEffect(() => {
     setFetchedOnce(false)
-  }, [props.trailerId])
+  }, [props.resourceId])
 
   useEffect(() => {
-    if (!props.trailerId) {
+    if (!props.resourceId) {
       setFetchedOnce(false)
       return
     }
     if (!loading) setFetchedOnce(true)
-  }, [loading, props.trailerId])
+  }, [loading, props.resourceId])
 
-  const isGatedLoading = Boolean(props.trailerId) && (!fetchedOnce || loading)
+  const isGatedLoading = Boolean(props.resourceId) && (!fetchedOnce || loading)
 
   const availability = props.availability ?? apiAvailability
   const bookedSet = useMemo(() => toSet(availability.booked ?? []), [availability.booked])
@@ -93,7 +95,8 @@ export function DateRangePlaceholder(props: {
       endISO: props.endDate,
       bookedSet,
       unavailableSet,
-    })
+      unitType, // ✅
+    } as any)
     if (!next) return
     props.onChange(next)
   }
@@ -112,7 +115,6 @@ export function DateRangePlaceholder(props: {
           }}
           onNext={() => setMonth(addMonths(month, 1))}
         />
-
         <CalendarLegend />
       </CardHeader>
 
@@ -124,6 +126,7 @@ export function DateRangePlaceholder(props: {
           startDate={props.startDate}
           endDate={props.endDate}
           onPick={onPick}
+          unitType={unitType} // ✅
           loading={isGatedLoading}
           loadingLabel="Ładowanie dostępności…"
           monthKey={month.getTime()}

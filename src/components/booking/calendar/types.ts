@@ -1,7 +1,10 @@
 export type Availability = {
-  booked: string[] // czerwone
-  unavailable: string[] // czarne
+  booked: string[] // czerwone (full)
+  unavailable: string[] // czarne (blokady/0 stock)
+  remainingByDay?: Record<string, number> // ✅ ile sztuk zostaje na dzień (0..stock)
+  stock?: number // ✅ stock zasobu
 }
+
 
 export type DayStatus = 'available' | 'booked' | 'unavailable'
 

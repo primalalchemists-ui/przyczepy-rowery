@@ -1,4 +1,4 @@
-import type { Availability, CalendarCell, DayStatus, IsoRange } from './types'
+import type { CalendarCell, DayStatus, IsoRange } from './types'
 
 function pad2(n: number) {
   return String(n).padStart(2, '0')
@@ -35,7 +35,7 @@ export function toSet(list: string[]) {
   return new Set(list.filter(Boolean))
 }
 
-// endDate = zwrot (exclusive). Noclegi = dni: start <= day < end
+// endDate = zwrot (exclusive). start <= day < end
 export function isNightSelected(dayISO: string, startISO: string, endISO: string) {
   if (!startISO || !endISO) return false
   const day = fromISO(dayISO).getTime()
@@ -44,7 +44,6 @@ export function isNightSelected(dayISO: string, startISO: string, endISO: string
   return day >= start && day < end
 }
 
-// ✅ UI helper: zaznacz też dzień zwrotu (endDate), mimo że jest exclusive
 export function isReturnSelected(dayISO: string, endISO: string) {
   if (!endISO) return false
   return dayISO === endISO
@@ -87,7 +86,6 @@ export function rangeIsAllAvailable(params: {
   bookedSet: Set<string>
   unavailableSet: Set<string>
 }) {
-  // sprawdzamy noclegi: start <= day < end
   let cur = params.startISO
   while (fromISO(cur).getTime() < fromISO(params.endISO).getTime()) {
     const st = dayStatusOf(cur, params.bookedSet, params.unavailableSet)
@@ -98,12 +96,15 @@ export function rangeIsAllAvailable(params: {
 }
 
 /**
- * UX selection rules (start-only first):
- * - 1 klik: ustaw START, end = '' (0 nocy)
- * - 2 klik:
- *    - jeśli klik > start: ustaw ZWROT = klik (exclusive) i licz noclegi: start <= day < end
- *    - jeśli klik == start: odklik (czyści)
- *    - jeśli klik < start: przenieś START na klik (end dalej puste)
+ * ✅ Selection rules zależnie od unitType:
+ *
+ * unitType = 'noc' (przyczepa):
+ * - 1 klik: start, end = ''
+ * - 2 klik: end = klik (exclusive)
+ *
+ * unitType = 'dzien' (ebike):
+ * - 1 klik: od razu 1 dzień => start = klik, end = klik+1 (exclusive)
+ * - kolejne kliki: jak normalnie (rozszerzanie) => end = klik+1 (exclusive)
  */
 export function computeNextRange(params: {
   clickedISO: string
@@ -111,46 +112,104 @@ export function computeNextRange(params: {
   endISO: string
   bookedSet: Set<string>
   unavailableSet: Set<string>
+  unitType?: 'noc' | 'dzien'
 }): { startDate: string; endDate: string } | null {
+  const unitType = params.unitType ?? 'noc'
+
   const clickedStatus = dayStatusOf(params.clickedISO, params.bookedSet, params.unavailableSet)
   if (clickedStatus !== 'available') return null
 
-  // 1) nic nie wybrane -> ustaw start, bez end (0 nocy)
+  const clicked = params.clickedISO
+
+  // ====== DZIEŃ (rowery): 1 klik = 1 dzień (end = start+1) ======
+  if (unitType === 'dzien') {
+    // 1) nic nie wybrane -> ustaw 1 dzień
+    if (!params.startISO) {
+      const end1 = addDaysISO(clicked, 1)
+      // dostępność tego 1 dnia:
+      if (
+        !rangeIsAllAvailable({
+          startISO: clicked,
+          endISO: end1,
+          bookedSet: params.bookedSet,
+          unavailableSet: params.unavailableSet,
+        })
+      ) return null
+      return { startDate: clicked, endDate: end1 }
+    }
+
+    const start = params.startISO
+
+    // 2) klik w start -> toggle off
+    if (clicked === start) {
+      return { startDate: '', endDate: '' }
+    }
+
+    // 3) klik przed startem -> nowy start, z automatu 1 dzień
+    if (fromISO(clicked).getTime() < fromISO(start).getTime()) {
+      const end1 = addDaysISO(clicked, 1)
+      if (
+        !rangeIsAllAvailable({
+          startISO: clicked,
+          endISO: end1,
+          bookedSet: params.bookedSet,
+          unavailableSet: params.unavailableSet,
+        })
+      ) return null
+      return { startDate: clicked, endDate: end1 }
+    }
+
+    // 4) klik po starcie -> klik to OSTATNI DZIEŃ (inclusive), więc end = klik+1
+    const newEndExclusive = addDaysISO(clicked, 1)
+    if (fromISO(newEndExclusive).getTime() <= fromISO(start).getTime()) return null
+
+    if (
+      !rangeIsAllAvailable({
+        startISO: start,
+        endISO: newEndExclusive,
+        bookedSet: params.bookedSet,
+        unavailableSet: params.unavailableSet,
+      })
+    ) return null
+
+    return { startDate: start, endDate: newEndExclusive }
+  }
+
+  // ====== NOC (przyczepy): 1 klik = start, end puste; 2 klik = end (exclusive) ======
+
+  // 1) nic nie wybrane -> ustaw start, bez end
   if (!params.startISO) {
-    return { startDate: params.clickedISO, endDate: '' }
+    return { startDate: clicked, endDate: '' }
   }
 
   const start = params.startISO
-  const end = params.endISO
 
   // 2) klik w start -> toggle off
-  if (params.clickedISO === start) {
+  if (clicked === start) {
     return { startDate: '', endDate: '' }
   }
 
   // 3) klik przed startem -> nowy start, dalej bez end
-  if (fromISO(params.clickedISO).getTime() < fromISO(start).getTime()) {
-    return { startDate: params.clickedISO, endDate: '' }
+  if (fromISO(clicked).getTime() < fromISO(start).getTime()) {
+    return { startDate: clicked, endDate: '' }
   }
 
-  // 4) klik po starcie -> ustaw zwrot = klik (exclusive)
-  const newEnd = params.clickedISO
+  // 4) klik po starcie -> end = klik (exclusive)
+  const newEndExclusive = clicked
+  if (fromISO(newEndExclusive).getTime() <= fromISO(start).getTime()) return null
 
-  // end musi być po starcie (minimum 1 noc)
-  if (fromISO(newEnd).getTime() <= fromISO(start).getTime()) return null
-
-  // sprawdzamy dostępność noclegów: start <= day < end
   if (
     !rangeIsAllAvailable({
       startISO: start,
-      endISO: newEnd,
+      endISO: newEndExclusive,
       bookedSet: params.bookedSet,
       unavailableSet: params.unavailableSet,
     })
   ) return null
 
-  return { startDate: start, endDate: newEnd }
+  return { startDate: start, endDate: newEndExclusive }
 }
+
 
 
 export const WEEK_DAYS_PL = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'Sb', 'Nd'] as const
@@ -166,6 +225,5 @@ export function todayISO() {
 }
 
 export function isBeforeISO(a: string, b: string) {
-  // porównanie yyyy-MM-dd działa leksykograficznie
   return a < b
 }

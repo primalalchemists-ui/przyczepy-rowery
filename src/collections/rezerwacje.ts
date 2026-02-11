@@ -2,6 +2,7 @@
 import type { CollectionConfig, CollectionBeforeChangeHook, CollectionBeforeValidateHook } from 'payload'
 
 type BookingStatus = 'pending_payment' | 'deposit_paid' | 'paid' | 'confirmed' | 'cancelled'
+type ResourceType = 'przyczepa' | 'ebike'
 
 const toDate = (v: unknown): Date | null => {
   if (!v) return null
@@ -9,17 +10,13 @@ const toDate = (v: unknown): Date | null => {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
-const diffNights = (start: Date, end: Date) => {
+// units = liczba dni/nocy między start a end (end-exclusive)
+const diffUnits = (start: Date, end: Date) => {
   const s = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate())
   const e = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate())
   return Math.round((e - s) / (1000 * 60 * 60 * 24))
 }
 
-/**
- * ✅ Normalizacja ID relacji:
- * - jeśli id jest stringiem typu "123" → zamienia na number 123
- * - jeśli jest normalnym stringiem uuid → zostawia
- */
 const normalizeRelId = (v: unknown) => {
   if (typeof v === 'number') return v
   if (typeof v === 'string') {
@@ -32,7 +29,6 @@ const normalizeRelId = (v: unknown) => {
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
-// tylko do wyświetlania w UI (zaliczka/całość) — NIE steruje panelem
 const calcPayableNow = (total: number, settings: any) => {
   const paymentMode = String(settings?.paymentMode ?? 'full') as 'full' | 'deposit'
   if (paymentMode === 'full') return Math.max(0, total)
@@ -47,69 +43,212 @@ const calcPayableNow = (total: number, settings: any) => {
   return Math.max(0, round2(total * (pct / 100)))
 }
 
+// ====== ✅ DOPISEK: helpery UTC do capacity-check ======
+const startOfDayUTC = (date: Date) =>
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+
+const addDaysUTC = (date: Date, days: number) => {
+  const d = startOfDayUTC(date)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d
+}
+
+const isoUTC = (d: Date) =>
+  `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+
+// start inclusive, end exclusive
+const expandDays = (start: Date, end: Date): string[] => {
+  const s = startOfDayUTC(start)
+  const e = startOfDayUTC(end)
+  const out: string[] = []
+  for (let cur = s; cur.getTime() < e.getTime(); cur = addDaysUTC(cur, 1)) out.push(isoUTC(cur))
+  return out
+}
+
+const overlaps = (startA: Date, endA: Date, startB: Date, endB: Date) =>
+  startA.getTime() < endB.getTime() && endA.getTime() > startB.getTime()
+
+type DayCounts = Map<string, number>
+const inc = (m: DayCounts, day: string, qty: number) => m.set(day, (m.get(day) ?? 0) + qty)
+
 const beforeValidate: CollectionBeforeValidateHook = async ({ data }) => {
-  const start = toDate(data?.startDate)
-  const end = toDate(data?.endDate)
+  const start = toDate((data as any)?.startDate)
+  const end = toDate((data as any)?.endDate)
   if (!start || !end) return data
 
-  const nights = diffNights(start, end)
-  if (nights <= 0) throw new Error('Data zakończenia musi być później niż data rozpoczęcia (minimum 1 noc).')
+  const units = diffUnits(start, end)
+  if (units <= 0) throw new Error('Data zakończenia musi być później niż data rozpoczęcia (minimum 1 dzień).')
+
+  const qty = Math.max(1, Number((data as any)?.ilosc ?? 1))
+  if (!Number.isFinite(qty) || qty < 1) throw new Error('Pole „Ilość” musi być >= 1.')
 
   return data
 }
 
-const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation }) => {
-  const status = ((data?.status as BookingStatus | undefined) ?? 'pending_payment') as BookingStatus
+const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, originalDoc }) => {
+  const status = (((data as any)?.status as BookingStatus | undefined) ?? 'pending_payment') as BookingStatus
 
-  const start = toDate(data?.startDate)
-  const end = toDate(data?.endDate)
+  // ====== DATY + ILOŚĆ ======
+  const start = toDate((data as any)?.startDate)
+  const end = toDate((data as any)?.endDate)
   if (!start || !end) return data
 
-  const nights = diffNights(start, end)
-  if (nights <= 0) throw new Error('Data zakończenia musi być później niż data rozpoczęcia (minimum 1 noc).')
+  const units = diffUnits(start, end)
+  if (units <= 0) throw new Error('Data zakończenia musi być później niż data rozpoczęcia (minimum 1 dzień).')
 
+  const qty = Math.max(1, Number((data as any)?.ilosc ?? 1))
+  if (!Number.isFinite(qty) || qty < 1) throw new Error('Pole „Ilość” musi być >= 1.')
+
+  // ====== GLOBAL: USTAWIENIA REZERWACJI ======
   const bookingSettings = await req.payload.findGlobal({ slug: 'ustawienia-rezerwacji' })
 
-  const bookingEnabled = Boolean((bookingSettings as any)?.bookingEnabled)
-  if (!bookingEnabled) {
-    throw new Error('Rezerwacje są aktualnie wyłączone (bookingEnabled = false).')
-  }
+  const bookingEnabled = Boolean((bookingSettings as any)?.bookingEnabled ?? true)
+  if (!bookingEnabled) throw new Error('Rezerwacje są aktualnie wyłączone (bookingEnabled = false).')
 
-  const minNightsDefault = Number((bookingSettings as any)?.minNightsDefault ?? 1)
-  const serviceFee = Number((bookingSettings as any)?.serviceFee ?? 0)
+  // ====== ZASÓB ======
+  const zasobId = normalizeRelId((data as any)?.zasob)
+  if (!zasobId) throw new Error('Pole „Zasób” jest wymagane.')
 
-  if (nights < minNightsDefault) {
-    throw new Error(`Minimalna liczba nocy: ${minNightsDefault}.`)
-  }
-
-  const caravanId = normalizeRelId(data?.przyczepa)
-  if (!caravanId) throw new Error('Pole „Przyczepa” jest wymagane.')
-
-  const caravan = await req.payload.findByID({
-    collection: 'przyczepy',
-    id: caravanId,
+  const zasob = await req.payload.findByID({
+    collection: 'zasoby',
+    id: zasobId,
     depth: 2,
   })
 
-  // ====== DANE KLIENTA: FAKTURA + NIP (WARUNKOWO) ======
+  // ====== TYP ZASOBU + PER-TYP SETTINGS ======
+  const resourceType = String((zasob as any)?.typZasobu ?? 'przyczepa') as ResourceType
+
+  const perTypeSettings =
+    resourceType === 'ebike' ? (bookingSettings as any)?.dlaRowerow : (bookingSettings as any)?.dlaPrzyczep
+
+  const enabledForType = perTypeSettings?.enabled !== false
+  if (!enabledForType) {
+    throw new Error(
+      resourceType === 'ebike'
+        ? 'Rezerwacje dla e-bike są aktualnie wyłączone.'
+        : 'Rezerwacje dla przyczep są aktualnie wyłączone.',
+    )
+  }
+
+  const minUnitsDefault = Number(perTypeSettings?.minUnits ?? 1)
+  const serviceFee = Number(perTypeSettings?.serviceFee ?? 0)
+
+  if (units < minUnitsDefault) {
+    throw new Error(`Minimalna liczba ${resourceType === 'ebike' ? 'dni' : 'nocy'}: ${minUnitsDefault}.`)
+  }
+
+  // ====== DANE KLIENTA: FAKTURA + NIP ======
   const klient = (data as any)?.klient ?? {}
   const wantsInvoice = Boolean(klient?.wantsInvoice)
   const nipRaw = typeof klient?.nip === 'string' ? klient.nip.trim() : ''
 
-  if (wantsInvoice) {
-    if (!nipRaw) {
-      throw new Error('Podaj NIP, jeśli zaznaczono fakturę.')
-    }
-  }
-
-  // jeśli faktury nie chcą — czyścimy NIP (żeby CMS był spójny)
+  if (wantsInvoice && !nipRaw) throw new Error('Podaj NIP, jeśli zaznaczono fakturę.')
   const nextNip = wantsInvoice ? nipRaw : undefined
 
-  // ====== CENA BAZOWA + SEZONY (po nocach) ======
-  const basePricePerNight = Number((caravan as any)?.cena?.basePricePerNight ?? 0)
-  const seasonal = Array.isArray((caravan as any)?.cena?.seasonalPricing)
-    ? ((caravan as any).cena.seasonalPricing as any[])
-    : []
+  // ====== STOCK CHECK (BASIC) ======
+  const stock = Math.max(0, Number((zasob as any)?.iloscSztuk ?? 1))
+  if (stock <= 0) throw new Error('Ten zasób ma stan 0 — nie można tworzyć rezerwacji.')
+  if (qty > stock) throw new Error(`Ilość przekracza stan magazynowy: ${stock}.`)
+
+  // ====== CENNIK + SEZONY ======
+  const unitType = String((zasob as any)?.cena?.jednostka ?? 'noc') as 'noc' | 'dzien'
+  const basePrice = Number((zasob as any)?.cena?.basePrice ?? 0)
+
+  // ✅ DOPISEK: returnDate jako Date (Payload date lubi Date/string — Date jest najczyściej)
+  const returnDate = unitType === 'dzien' ? addDaysUTC(end, -1) : startOfDayUTC(end)
+
+  // ====== ✅ DOPISEK: CAPACITY CHECK PER DAY ======
+  // Zasady liczenia zakresu zajętości takie jak w Twoim availability.ts:
+  // - noc: blokujemy też dzień zwrotu => end + 1
+  // - dzien: endDate jest exclusive, więc nie dokładamy dnia po
+  const shouldBlockReturnDay = unitType === 'noc'
+  const endToCount = shouldBlockReturnDay ? addDaysUTC(end, 1) : end
+
+  const requestedDays = expandDays(start, endToCount)
+
+  const occupyingStatuses: BookingStatus[] = ['pending_payment', 'deposit_paid', 'paid', 'confirmed']
+
+  const whereBookings: any = {
+    and: [
+      { zasob: { equals: zasobId } },
+      { status: { in: occupyingStatuses as any } },
+      { startDate: { less_than: endToCount.toISOString() } },
+      { endDate: { greater_than: start.toISOString() } },
+    ],
+  }
+
+  // update: nie licz samej rezerwacji
+  const currentId = (originalDoc as any)?.id
+  if (operation === 'update' && currentId) {
+    whereBookings.and.push({ id: { not_equals: currentId } })
+  }
+
+  const bookedCountByDay = new Map<string, number>()
+  const blockedCountByDay = new Map<string, number>()
+
+  // rezerwacje
+  const bookingsRes = await req.payload.find({
+    collection: 'rezerwacje',
+    depth: 0,
+    limit: 5000,
+    overrideAccess: true,
+    where: whereBookings,
+  })
+
+  for (const b of bookingsRes.docs as any[]) {
+    const s = toDate(b?.startDate)
+    const e = toDate(b?.endDate)
+    if (!s || !e) continue
+
+    const bQty = Math.max(1, Number(b?.ilosc ?? 1))
+
+    // liczymy tak samo jak zasób (spójnie z availability)
+    const bEndToCount = shouldBlockReturnDay ? addDaysUTC(e, 1) : e
+
+    if (!overlaps(s, bEndToCount, start, endToCount)) continue
+    const days = expandDays(s, bEndToCount)
+    for (const day of days) inc(bookedCountByDay, day, bQty)
+  }
+
+  // blokady
+  const blocksRes = await req.payload.find({
+    collection: 'blokady',
+    depth: 0,
+    limit: 5000,
+    overrideAccess: true,
+    where: {
+      and: [
+        { zasob: { equals: zasobId } },
+        { active: { equals: true } },
+        { dateFrom: { less_than: endToCount.toISOString() } },
+        { dateTo: { greater_than: start.toISOString() } },
+      ],
+    },
+  })
+
+  for (const bl of blocksRes.docs as any[]) {
+    const s = toDate(bl?.dateFrom)
+    const e = toDate(bl?.dateTo)
+    if (!s || !e) continue
+
+    const blQty = Math.max(1, Number(bl?.ilosc ?? 1))
+    const blEndToCount = shouldBlockReturnDay ? addDaysUTC(e, 1) : e
+
+    if (!overlaps(s, blEndToCount, start, endToCount)) continue
+    const days = expandDays(s, blEndToCount)
+    for (const day of days) inc(blockedCountByDay, day, blQty)
+  }
+
+  for (const day of requestedDays) {
+    const already = (bookedCountByDay.get(day) ?? 0) + (blockedCountByDay.get(day) ?? 0)
+    const left = stock - already
+    if (qty > left) {
+      throw new Error(`Brak dostępnej ilości w dniu ${day}. Dostępne: ${Math.max(0, left)} / ${stock}.`)
+    }
+  }
+  // ====== ✅ KONIEC DOPISKU capacity ======
+
+  const seasonal = Array.isArray((zasob as any)?.cena?.seasonalPricing) ? ((zasob as any).cena.seasonalPricing as any[]) : []
 
   const seasonalSorted = [...seasonal].sort((a, b) => {
     const af = String(a?.dateFrom ?? '')
@@ -118,78 +257,65 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation }
   })
 
   const toISODateUTC = (d: Date) =>
-    new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-      .toISOString()
-      .slice(0, 10)
+    new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString().slice(0, 10)
 
-  const pickSeasonForNightISO = (nightISO: string) => {
+  const pickSeasonForISO = (iso: string) => {
     for (const s of seasonalSorted) {
       const df = toDate(s?.dateFrom)
       const dt = toDate(s?.dateTo)
       if (!df || !dt) continue
-
       const dfISO = toISODateUTC(df)
       const dtISO = toISODateUTC(dt)
-
-      if (nightISO >= dfISO && nightISO <= dtISO) return s
+      if (iso >= dfISO && iso <= dtISO) return s
     }
     return null
   }
 
-  type LodgingBreakdownRow = {
-    label: string
-    nights: number
-    pricePerNight: number
-    total: number
-  }
+  type BreakdownRow = { label: string; units: number; pricePerUnit: number; total: number }
+  const breakdown: BreakdownRow[] = []
 
-  const lodgingBreakdown: LodgingBreakdownRow[] = []
-
-  const pushOrInc = (row: LodgingBreakdownRow) => {
-    const last = lodgingBreakdown[lodgingBreakdown.length - 1]
+  const pushOrInc = (row: BreakdownRow) => {
+    const last = breakdown[breakdown.length - 1]
     const sameLabel = last?.label === row.label
-    const samePrice = last?.pricePerNight === row.pricePerNight
+    const samePrice = last?.pricePerUnit === row.pricePerUnit
     if (last && sameLabel && samePrice) {
-      last.nights += row.nights
+      last.units += row.units
       last.total = round2(last.total + row.total)
-    } else {
-      lodgingBreakdown.push(row)
-    }
+    } else breakdown.push(row)
   }
 
   let lodgingTotal = 0
-  let requiredSeasonMinNights = 0
+  let requiredSeasonMinUnits = 0
 
   {
     const cur = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()))
     const endUTC = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()))
 
     while (cur.getTime() < endUTC.getTime()) {
-      const nightISO = cur.toISOString().slice(0, 10)
-      const season = pickSeasonForNightISO(nightISO)
+      const iso = cur.toISOString().slice(0, 10)
+      const season = pickSeasonForISO(iso)
 
       if (season) {
         const seasonName = String(season?.name ?? 'Sezon')
-        const seasonPrice = Number(season?.pricePerNight ?? basePricePerNight)
-
+        const seasonPrice = Number(season?.price ?? basePrice)
         lodgingTotal += seasonPrice
 
-        const mn = season?.minNights != null ? Number(season.minNights) : 0
-        if (Number.isFinite(mn) && mn > 0) requiredSeasonMinNights = Math.max(requiredSeasonMinNights, mn)
+        const mn = season?.minUnits != null ? Number(season.minUnits) : 0
+        if (Number.isFinite(mn) && mn > 0) requiredSeasonMinUnits = Math.max(requiredSeasonMinUnits, mn)
 
         pushOrInc({
           label: `Cena sezonowa (${seasonName})`,
-          nights: 1,
-          pricePerNight: seasonPrice,
+          units: 1,
+          pricePerUnit: seasonPrice,
           total: round2(seasonPrice),
         })
       } else {
-        lodgingTotal += basePricePerNight
+        lodgingTotal += basePrice
         pushOrInc({
           label: 'Cena standardowa',
-          nights: 1,
-          pricePerNight: basePricePerNight,
-          total: round2(basePricePerNight),
+          units: 1,
+          pricePerUnit: basePrice,
+          total: round2(basePrice),
         })
       }
 
@@ -197,27 +323,15 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation }
     }
   }
 
-  lodgingTotal = round2(lodgingTotal)
+  lodgingTotal = round2(lodgingTotal * qty)
 
-  const standardNights = lodgingBreakdown
-    .filter((r) => r.label === 'Cena standardowa')
-    .reduce((sum, r) => sum + r.nights, 0)
-
-  const seasonalNights = lodgingBreakdown
-    .filter((r) => r.label !== 'Cena standardowa')
-    .reduce((sum, r) => sum + r.nights, 0)
-
-  const requiredMinNights = Math.max(minNightsDefault, requiredSeasonMinNights)
-
-  if (nights < requiredMinNights) {
-    if (requiredSeasonMinNights > minNightsDefault) {
-      throw new Error(`Ten sezon wymaga minimum ${requiredSeasonMinNights} nocy.`)
-    }
-    throw new Error(`Minimalna liczba nocy: ${minNightsDefault}.`)
+  const requiredMinUnits = Math.max(minUnitsDefault, requiredSeasonMinUnits)
+  if (units < requiredMinUnits) {
+    throw new Error(`Minimalna liczba ${unitType === 'noc' ? 'nocy' : 'dni'}: ${requiredMinUnits}.`)
   }
 
   // ====== DODATKI ======
-  const extrasInput = Array.isArray(data?.extras) ? (data?.extras as any[]) : []
+  const extrasInput = Array.isArray((data as any)?.extras) ? ((data as any).extras as any[]) : []
 
   const extrasSnapshot: any[] = []
   let extrasTotal = 0
@@ -226,7 +340,7 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation }
     const addonId = normalizeRelId(row?.dodatek)
     if (!addonId) continue
 
-    const qty = Math.max(1, Number(row?.quantity ?? 1))
+    const addonQty = Math.max(1, Number(row?.quantity ?? 1))
 
     const addon = await req.payload.findByID({
       collection: 'dodatki',
@@ -236,44 +350,46 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation }
 
     if (!(addon as any)?.active) continue
 
-    const name = String((addon as any)?.name ?? '')
+    const name = String((addon as any)?.name ?? 'Dodatek')
     const pricingType = ((addon as any)?.pricingType ?? 'perBooking') as 'perBooking' | 'perDay'
     const unitPrice = Number((addon as any)?.price ?? 0)
 
-    const rowTotal = pricingType === 'perDay' ? unitPrice * qty * nights : unitPrice * qty
+    const maxQ = Math.max(1, Number((addon as any)?.maxQuantity ?? 1))
+    if (addonQty > maxQ) {
+      throw new Error(`Dodatek „${name}”: maksymalna ilość na rezerwację to ${maxQ}.`)
+    }
+
+    const allowed = Array.isArray((addon as any)?.dostepneDla) ? (addon as any).dostepneDla : []
+    if (resourceType && allowed.length > 0 && !allowed.includes(resourceType)) {
+      throw new Error(`Dodatek „${name}” nie jest dostępny dla tego typu zasobu.`)
+    }
+
+    const rowTotal = pricingType === 'perDay' ? unitPrice * addonQty * units * qty : unitPrice * addonQty
+
     extrasTotal += rowTotal
 
     extrasSnapshot.push({
       name,
       pricingType,
       unitPrice,
-      quantity: qty,
+      quantity: addonQty,
       total: rowTotal,
     })
   }
 
   // ====== SUMA ======
   const total = round2(lodgingTotal + extrasTotal + serviceFee)
+  const payableNow = round2(calcPayableNow(total, perTypeSettings))
 
-  // (frontend info) ile “powinno” być teraz wg global settings
-  const payableNow = round2(calcPayableNow(total, bookingSettings as any))
-
-  // PANEL: wpisujesz ile klient realnie zapłacił
-  const paidAmountInput = Number((data as any)?.payment?.paidAmount ?? 0)
+  const paidAmountInput = Number((data as any)?.payment?.paidAmount ?? (originalDoc as any)?.payment?.paidAmount ?? 0)
   const paidAmount = Number.isFinite(paidAmountInput) ? Math.max(0, round2(paidAmountInput)) : 0
 
   const dueAmount = round2(Math.max(0, total - paidAmount))
   const paidInFull = dueAmount <= 0.00001
-
-  // jeśli coś wpłacone, to uznajemy że to zaliczka (dopóki nie pokryje całości)
   const depositPaid = paidAmount > 0 && !paidInFull
 
-  // ✅ miękka automatyka statusu:
-  // - nie dotykamy: confirmed/cancelled
-  // - dotykamy tylko: pending_payment/deposit_paid/paid
   let nextStatus = status
   const statusIsPaymentLike = status === 'pending_payment' || status === 'deposit_paid' || status === 'paid'
-
   if (statusIsPaymentLike || operation === 'create') {
     if (paidInFull) nextStatus = 'paid'
     else if (depositPaid) nextStatus = 'deposit_paid'
@@ -284,10 +400,12 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation }
     ...data,
     status: nextStatus,
 
-    // fix: payload czasem wali string/number mismatch
-    przyczepa: caravanId,
+    zasob: zasobId,
+    ilosc: qty,
 
-    // ✅ klient: zapis wantsInvoice + NIP warunkowo
+    // ✅ czytelny zwrot w adminie
+    returnDate,
+
     klient: {
       ...klient,
       wantsInvoice,
@@ -303,17 +421,12 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation }
     },
 
     snapshot: {
-      ...(data?.snapshot ?? {}),
-      nights,
+      ...(data as any)?.snapshot,
+      units,
+      unitType,
+      basePrice,
 
-      // ✅ baza zawsze stała w CMS (żeby nie mieszało, że "użyta" to sezon)
-      pricePerNight: basePricePerNight,
-
-      // ✅ breakdown standard vs sezon
-      lodgingBreakdown,
-      standardNights,
-      seasonalNights,
-
+      breakdown,
       extrasSnapshot,
       serviceFee,
       total,
@@ -323,16 +436,15 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation }
 
 export const Rezerwacje: CollectionConfig = {
   slug: 'rezerwacje',
-  labels: {
-    singular: 'Rezerwacja',
-    plural: 'Rezerwacje',
-  },
+  labels: { singular: 'Rezerwacja', plural: 'Rezerwacje' },
   admin: {
     useAsTitle: 'id',
     defaultColumns: [
-      'przyczepa',
+      'zasob',
+      'ilosc',
       'startDate',
       'endDate',
+      'returnDate',
       'status',
       'payment.paidAmount',
       'payment.dueAmount',
@@ -352,12 +464,21 @@ export const Rezerwacje: CollectionConfig = {
   },
   fields: [
     {
-      name: 'przyczepa',
-      label: 'Przyczepa',
+      name: 'zasob',
+      label: 'Zasób',
       type: 'relationship',
-      relationTo: 'przyczepy',
+      relationTo: 'zasoby',
       required: true,
       index: true,
+    },
+    {
+      name: 'ilosc',
+      label: 'Ilość sztuk',
+      type: 'number',
+      required: true,
+      defaultValue: 1,
+      min: 1,
+      admin: { description: 'Ile sztuk zasobu jest rezerwowanych (np. 2 rowery). Dla przyczepy zwykle 1.' },
     },
     {
       name: 'startDate',
@@ -375,6 +496,21 @@ export const Rezerwacje: CollectionConfig = {
       index: true,
       admin: { date: { pickerAppearance: 'dayOnly' } },
     },
+
+    // ✅ NOWE: zwrot (czytelny dla człowieka)
+    {
+      name: 'returnDate',
+      label: 'Zwrot (data)',
+      type: 'date',
+      required: false,
+      index: true,
+      admin: {
+        readOnly: true,
+        date: { pickerAppearance: 'dayOnly' },
+        description: 'Wyliczane automatycznie. Dla e-bike: endDate - 1.',
+      },
+    },
+
     {
       name: 'status',
       label: 'Status',
@@ -390,178 +526,82 @@ export const Rezerwacje: CollectionConfig = {
         { label: 'Anulowana', value: 'cancelled' },
       ],
     },
-
     {
       name: 'extras',
       label: 'Wybrane dodatki',
       type: 'array',
       required: false,
-      // admin: {
-      //   description: 'Dodatki do tej rezerwacji (ilość = quantity).',
-      // },
       fields: [
-        {
-          name: 'dodatek',
-          label: 'Dodatek',
-          type: 'relationship',
-          relationTo: 'dodatki',
-          required: true,
-        },
-        {
-          name: 'quantity',
-          label: 'Ilość',
-          type: 'number',
-          required: true,
-          min: 1,
-          defaultValue: 1,
-        },
+        { name: 'dodatek', label: 'Dodatek', type: 'relationship', relationTo: 'dodatki', required: true },
+        { name: 'quantity', label: 'Ilość', type: 'number', required: true, min: 1, defaultValue: 1 },
       ],
     },
-
     {
-  name: 'klient',
-  label: 'Dane klienta',
-  type: 'group',
-  fields: [
-    { name: 'fullName', label: 'Imię i nazwisko', type: 'text', required: true },
-    { name: 'email', label: 'E-mail', type: 'email', required: true },
-    { name: 'phone', label: 'Telefon', type: 'text', required: true },
-
-    // ✅ Faktura NIE required (żeby nie było "Faktura *")
-    {
-      name: 'wantsInvoice',
-      label: 'Faktura',
-      type: 'checkbox',
-      required: false,
-      defaultValue: false,
+      name: 'klient',
+      label: 'Dane klienta',
+      type: 'group',
+      fields: [
+        { name: 'fullName', label: 'Imię i nazwisko', type: 'text', required: true },
+        { name: 'email', label: 'E-mail', type: 'email', required: true },
+        { name: 'phone', label: 'Telefon', type: 'text', required: true },
+        { name: 'wantsInvoice', label: 'Faktura', type: 'checkbox', required: false, defaultValue: false },
+        {
+          name: 'nip',
+          label: 'NIP',
+          type: 'text',
+          required: false,
+          admin: {
+            condition: (_, siblingData) => Boolean((siblingData as any)?.wantsInvoice),
+            description: 'Wymagany, jeśli zaznaczono „Faktura”.',
+          },
+          validate: (value, { siblingData }) => {
+            const wants = Boolean((siblingData as any)?.wantsInvoice)
+            if (!wants) return true
+            const v = String(value ?? '').trim()
+            if (!v) return 'Podaj NIP, jeśli chcesz fakturę.'
+            return true
+          },
+        },
+        { name: 'notes', label: 'Uwagi (opcjonalnie)', type: 'textarea', required: false },
+        { name: 'disability', label: 'Niepełnosprawność', type: 'checkbox', required: false, defaultValue: false },
+      ],
     },
-
-    // ✅ NIP pokazuje się tylko gdy wantsInvoice = true + walidacja warunkowa
-    {
-      name: 'nip',
-      label: 'NIP',
-      type: 'text',
-      required: false,
-      admin: {
-        condition: (_, siblingData) => Boolean((siblingData as any)?.wantsInvoice),
-        description: 'Wymagany, jeśli zaznaczono „Faktura”.',
-      },
-      validate: (value, { siblingData }) => {
-        const wants = Boolean((siblingData as any)?.wantsInvoice)
-        if (!wants) return true
-
-        const v = String(value ?? '').trim()
-        if (!v) return 'Podaj NIP, jeśli chcesz fakturę.'
-        return true
-      },
-    },
-
-    { name: 'notes', label: 'Uwagi (opcjonalnie)', type: 'textarea', required: false },
-    {
-      name: 'disability',
-      label: 'Niepełnosprawność',
-      type: 'checkbox',
-      required: false,
-      defaultValue: false,
-    },
-  ],
-},
-
-
-    // ✅ PŁATNOŚĆ (panel = wolność)
     {
       name: 'payment',
       label: 'Płatność',
       type: 'group',
       fields: [
-        {
-          name: 'payableNow',
-          label: 'Sugestia: do zapłaty teraz (z ustawień)',
-          type: 'number',
-          required: false,
-          min: 0,
-          admin: {
-            readOnly: true,
-            step: 0.01,
-          },
-        },
-        {
-          name: 'paidAmount',
-          label: 'Zapłacone (PLN)',
-          type: 'number',
-          required: false,
-          min: 0,
-          admin: { step: 0.01, description: 'Wpisz ile klient realnie zapłacił' },
-        },
-        {
-          name: 'dueAmount',
-          label: 'Pozostało do zapłaty (PLN)',
-          type: 'number',
-          required: false,
-          min: 0,
-          admin: { readOnly: true, step: 0.01 },
-        },
-        {
-          name: 'paidInFull',
-          label: 'Opłacone w całości',
-          type: 'checkbox',
-          required: false,
-          admin: { readOnly: true },
-        },
+        { name: 'payableNow', label: 'Sugestia: do zapłaty teraz (z ustawień)', type: 'number', admin: { readOnly: true, step: 0.01 } },
+        { name: 'paidAmount', label: 'Zapłacone (PLN)', type: 'number', required: false, min: 0, admin: { step: 0.01 } },
+        { name: 'dueAmount', label: 'Pozostało do zapłaty (PLN)', type: 'number', admin: { readOnly: true, step: 0.01 } },
+        { name: 'paidInFull', label: 'Opłacone w całości', type: 'checkbox', admin: { readOnly: true } },
       ],
     },
-
     {
       name: 'snapshot',
       label: 'Snapshot ceny (auto)',
       type: 'group',
       admin: { description: 'Pola wyliczane automatycznie' },
       fields: [
-        { name: 'nights', label: 'Liczba nocy', type: 'number', required: false, min: 0, admin: { readOnly: true } },
+        { name: 'units', label: 'Liczba dni/nocy', type: 'number', admin: { readOnly: true } },
+        { name: 'unitType', label: 'Jednostka', type: 'text', admin: { readOnly: true } },
+        { name: 'basePrice', label: 'Cena bazowa (PLN)', type: 'number', admin: { readOnly: true, step: 0.01 } },
         {
-          name: 'pricePerNight',
-          label: 'Cena standardowa / noc',
-          type: 'number',
-          required: false,
-          min: 0,
-          admin: { readOnly: true, step: 0.01 },
-        },
-
-        {
-          name: 'lodgingBreakdown',
-          label: 'Noclegi (rozbicie)',
+          name: 'breakdown',
+          label: 'Rozbicie (auto)',
           type: 'array',
-          required: false,
           admin: { readOnly: true },
           fields: [
             { name: 'label', label: 'Typ', type: 'text', required: true },
-            { name: 'nights', label: 'Liczba nocy', type: 'number', required: true, min: 0 },
-            { name: 'pricePerNight', label: 'Cena / noc', type: 'number', required: true, min: 0, admin: { step: 0.01 } },
+            { name: 'units', label: 'Ilość', type: 'number', required: true, min: 0 },
+            { name: 'pricePerUnit', label: 'Cena / jednostkę', type: 'number', required: true, min: 0, admin: { step: 0.01 } },
             { name: 'total', label: 'Suma', type: 'number', required: true, min: 0, admin: { step: 0.01 } },
           ],
         },
         {
-          name: 'standardNights',
-          label: 'Nocy standard',
-          type: 'number',
-          required: false,
-          min: 0,
-          admin: { readOnly: true },
-        },
-        {
-          name: 'seasonalNights',
-          label: 'Nocy sezon',
-          type: 'number',
-          required: false,
-          min: 0,
-          admin: { readOnly: true },
-        },
-
-        {
           name: 'extrasSnapshot',
           label: 'Dodatki (snapshot)',
           type: 'array',
-          required: false,
           admin: { readOnly: true },
           fields: [
             { name: 'name', label: 'Nazwa', type: 'text', required: true },
@@ -572,7 +612,7 @@ export const Rezerwacje: CollectionConfig = {
               required: true,
               options: [
                 { label: 'Za rezerwację', value: 'perBooking' },
-                { label: 'Za dobę', value: 'perDay' },
+                { label: 'Za dzień', value: 'perDay' },
               ],
             },
             { name: 'unitPrice', label: 'Cena jednostkowa', type: 'number', required: true, admin: { step: 0.01 } },
@@ -580,14 +620,8 @@ export const Rezerwacje: CollectionConfig = {
             { name: 'total', label: 'Suma', type: 'number', required: true, admin: { step: 0.01 } },
           ],
         },
-        {
-          name: 'serviceFee',
-          label: 'Opłata serwisowa',
-          type: 'number',
-          required: false,
-          admin: { readOnly: true, step: 0.01 },
-        },
-        { name: 'total', label: 'Razem', type: 'number', required: false, admin: { readOnly: true, step: 0.01 } },
+        { name: 'serviceFee', label: 'Opłata serwisowa', type: 'number', admin: { readOnly: true, step: 0.01 } },
+        { name: 'total', label: 'Razem', type: 'number', admin: { readOnly: true, step: 0.01 } },
       ],
     },
   ],

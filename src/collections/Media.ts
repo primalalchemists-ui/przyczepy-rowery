@@ -11,14 +11,12 @@ export const Media: CollectionConfig = {
   admin: {
     group: 'Zasoby',
   },
-
   access: {
     create: authenticated,
     delete: authenticated,
     read: anyone,
     update: authenticated,
   },
-
   fields: [
     {
       name: 'alt',
@@ -30,21 +28,36 @@ export const Media: CollectionConfig = {
       label: 'Podpis',
       type: 'richText',
     },
+    // Opcjonalnie: informacyjnie w adminie
+    {
+      name: 'typPliku',
+      label: 'Typ pliku',
+      type: 'text',
+      admin: { readOnly: true, position: 'sidebar' },
+      hooks: {
+        beforeChange: [
+          ({ data, originalDoc }) => {
+            // Payload trzyma mimeType w upload metadata, ale nie zawsze od razu w data
+            // To pole jest tylko “nice to have”
+            return (data as any)?.mimeType ?? (originalDoc as any)?.mimeType ?? (data as any)?.typPliku
+          },
+        ],
+      },
+    },
   ],
-
- upload: {
-  mimeTypes: ['image/*', 'application/pdf'],
-  adminThumbnail: 'thumbnail',
-  focalPoint: true,
-  imageSizes: [
-    { name: 'thumbnail', width: 300 },
-    { name: 'square', width: 500, height: 500 },
-    { name: 'small', width: 600 },
-    { name: 'medium', width: 900 },
-    { name: 'large', width: 1400 },
-    { name: 'xlarge', width: 1920 },
-    { name: 'og', width: 1200, height: 630, crop: 'center' },
-  ],
-}
-
+  upload: {
+    // ✅ DODANE VIDEO
+    mimeTypes: ['image/*', 'video/*', 'application/pdf'],
+    adminThumbnail: 'thumbnail',
+    focalPoint: true,
+    imageSizes: [
+      { name: 'thumbnail', width: 300 },
+      { name: 'square', width: 500, height: 500 },
+      { name: 'small', width: 600 },
+      { name: 'medium', width: 900 },
+      { name: 'large', width: 1400 },
+      { name: 'xlarge', width: 1920 },
+      { name: 'og', width: 1200, height: 630, crop: 'center' },
+    ],
+  },
 }

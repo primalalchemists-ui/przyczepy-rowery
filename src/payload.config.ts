@@ -19,7 +19,7 @@ import { getServerSideURL } from './utilities/getURL'
 
 // import { Media } from './payload/collections/media'
 import { Dodatki } from './collections/dodatki'
-import { Przyczepy } from './collections/przyczepy'
+import { Zasoby } from './collections/zasoby'
 import { Rezerwacje } from './collections/rezerwacje'
 import { Platnosci } from './collections/platnosci'
 import { Blokady } from './collections/blokady'
@@ -30,6 +30,20 @@ import { UstawieniaRezerwacji } from './globals/ustawienia-rezerwacji'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+// console.log('CHECK imports', {
+//   Media: !!Media,
+//   Users: !!Users,
+//   Dodatki: !!Dodatki,
+//   Zasoby: !!Zasoby,
+//   Rezerwacje: !!Rezerwacje,
+//   Blokady: !!Blokady,
+//   Platnosci: !!Platnosci,
+//   UstawieniaStrony: !!UstawieniaStrony,
+//   UstawieniaRezerwacji: !!UstawieniaRezerwacji,
+//   defaultLexical: !!defaultLexical,
+// })
+
 
 export default buildConfig({
   admin: {
@@ -75,7 +89,7 @@ export default buildConfig({
       connectionString: process.env.DATABASE_URL || '',
     },
   }),
-  collections: [Media, Users, Dodatki, Przyczepy, Rezerwacje, Blokady, Platnosci],
+  collections: [Media, Users, Dodatki, Zasoby, Rezerwacje, Blokady, Platnosci],
   cors: [getServerSideURL()].filter(Boolean),
   globals: [UstawieniaStrony, UstawieniaRezerwacji],
   plugins: [

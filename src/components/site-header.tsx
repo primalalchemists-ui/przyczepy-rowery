@@ -21,7 +21,7 @@ type Props = {
 
 const navItems = [
   { href: '/', label: 'Start' },
-  { href: '/przyczepy', label: 'Przyczepy' },
+  { href: '/oferta', label: 'Oferta' },
   { href: '/rezerwacje', label: 'Rezerwacje', highlight: true }, // ✅ zawsze wyróżnione
   { href: '/#kontakt', label: 'Kontakt' },
 ] as const
@@ -30,7 +30,7 @@ export function SiteHeader({ siteName }: Props) {
   const [open, setOpen] = React.useState(false)
 
   return (
-    <header className="border-b bg-background/80 backdrop-blur">
+    <header className="border-b bg-background/80 backdrop-blur" style={{ ['--header-h' as any]: '72px' }}>
       <nav className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-4 px-4 py-3">
         {/* Logo */}
         <Link
@@ -39,7 +39,7 @@ export function SiteHeader({ siteName }: Props) {
           className="inline-flex items-center gap-1.5 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <Image
-            src="/logo/logo.svg"
+            src="/logo/logo.png"
             alt={`${siteName} – logo`}
             width={44}
             height={44}

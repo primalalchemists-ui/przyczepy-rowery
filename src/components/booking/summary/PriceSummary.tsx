@@ -1,3 +1,5 @@
+'use client'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPLN } from '@/lib/utils'
 import type { AddonDoc } from '@/lib/payload'
@@ -9,11 +11,11 @@ type SeasonalRow = {
   name: string
   dateFrom: string
   dateTo: string
-  pricePerNight: number
-  minNights?: number | null
+  price: number
+  minUnits?: number | null
 }
 
-function diffNightsUTC(startISO: string, endISO: string) {
+function diffUnitsUTC(startISO: string, endISO: string): number {
   if (!startISO || !endISO) return 0
   const s = new Date(startISO)
   const e = new Date(endISO)
@@ -38,137 +40,145 @@ function addDaysISO(iso: string, days: number) {
   return toISODate(d)
 }
 
-function inSeason(nightISO: string, s: SeasonalRow) {
-  // inclusive range for season boundaries
-  return nightISO >= s.dateFrom && nightISO <= s.dateTo
+function inSeason(dayISO: string, s: SeasonalRow) {
+  return dayISO >= s.dateFrom && dayISO <= s.dateTo
 }
 
 type Segment = {
   label: string
-  nights: number
-  pricePerNight: number
+  units: number
+  pricePerUnit: number
   total: number
-  minNights?: number | null
+  minUnits?: number | null
 }
 
-function buildNightSegments(params: {
+function buildSegments(params: {
   startISO: string
   endISO: string
   base: number
   seasonal: SeasonalRow[]
 }) {
-  const nights = diffNightsUTC(params.startISO, params.endISO)
-  if (!params.startISO || !params.endISO || nights <= 0) {
+  const units = diffUnitsUTC(params.startISO, params.endISO)
+  if (!params.startISO || !params.endISO || units <= 0) {
     return {
       segments: [] as Segment[],
-      requiredMinNightsFromSeasons: 0,
-      firstNightPrice: params.base,
+      requiredMinUnitsFromSeasons: 0,
       lodgingTotal: 0,
     }
   }
 
   const seasonalSorted = [...(params.seasonal ?? [])].sort((a, b) => (a.dateFrom < b.dateFrom ? -1 : 1))
 
-  const pickSeasonForNight = (nightISO: string) => {
+  const pickSeasonForDay = (dayISO: string) => {
     for (const s of seasonalSorted) {
-      if (inSeason(nightISO, s)) return s
+      if (inSeason(dayISO, s)) return s
     }
     return null
   }
 
-  let requiredMinNightsFromSeasons = 0
-
+  let requiredMinUnitsFromSeasons = 0
   const segments: Segment[] = []
-  let curNight = params.startISO
 
+  let cur = params.startISO
   let activeSeason: SeasonalRow | null = null
   let activePrice = params.base
-  let segNights = 0
+  let segUnits = 0
 
   const flush = () => {
-    if (segNights <= 0) return
+    if (segUnits <= 0) return
     segments.push({
       label: activeSeason ? activeSeason.name : 'Poza sezonem',
-      nights: segNights,
-      pricePerNight: activePrice,
-      total: activePrice * segNights,
-      minNights: activeSeason?.minNights ?? null,
+      units: segUnits,
+      pricePerUnit: activePrice,
+      total: activePrice * segUnits,
+      minUnits: activeSeason?.minUnits ?? null,
     })
   }
 
-  for (let i = 0; i < nights; i++) {
-    const season = pickSeasonForNight(curNight)
-    const price = season ? Number(season.pricePerNight ?? params.base) : params.base
+  for (let i = 0; i < units; i++) {
+    const season = pickSeasonForDay(cur)
+    const price = season ? Number(season.price ?? params.base) : params.base
 
-    if (season?.minNights) {
-      requiredMinNightsFromSeasons = Math.max(requiredMinNightsFromSeasons, Number(season.minNights))
+    if (season?.minUnits) {
+      requiredMinUnitsFromSeasons = Math.max(requiredMinUnitsFromSeasons, Number(season.minUnits))
     }
 
     if (i === 0) {
       activeSeason = season
       activePrice = price
-      segNights = 1
+      segUnits = 1
     } else {
       const sameSeason = (activeSeason?.name ?? '') === (season?.name ?? '')
       const samePrice = activePrice === price
 
-      if (sameSeason && samePrice) {
-        segNights += 1
-      } else {
+      if (sameSeason && samePrice) segUnits += 1
+      else {
         flush()
         activeSeason = season
         activePrice = price
-        segNights = 1
+        segUnits = 1
       }
     }
 
-    curNight = addDaysISO(curNight, 1)
+    cur = addDaysISO(cur, 1)
   }
 
   flush()
 
   const lodgingTotal = segments.reduce((sum, s) => sum + s.total, 0)
-  const firstNightPrice = segments[0]?.pricePerNight ?? params.base
-
-  return { segments, requiredMinNightsFromSeasons, firstNightPrice, lodgingTotal }
+  return { segments, requiredMinUnitsFromSeasons, lodgingTotal }
 }
 
 export function PriceSummary(props: {
-  basePricePerNight: number
+  unitType: 'noc' | 'dzien'
+  basePrice: number
   seasonalPricing?: SeasonalRow[]
+
   startDate: string
   endDate: string
+
   serviceFee: number
-  minNightsDefault: number
+  minUnitsDefault: number
+
   availableAddons: AddonDoc[]
   selectedExtras: SelectedExtra[]
+
+  // ✅ NOWE
+  quantity?: number
+
   onTotalChange?: (total: number) => void
 
   paymentMode?: 'full' | 'deposit'
   depositType?: 'percent' | 'fixed' | null
   depositValue?: number | null
 }) {
-  const nights = diffNightsUTC(props.startDate, props.endDate)
+  const units = diffUnitsUTC(props.startDate, props.endDate)
+
+  const qty = Math.max(1, Number(props.quantity ?? 1))
 
   const pricing = useMemo(() => {
-    return buildNightSegments({
+    return buildSegments({
       startISO: props.startDate,
       endISO: props.endDate,
-      base: Number(props.basePricePerNight ?? 0),
+      base: Number(props.basePrice ?? 0),
       seasonal: (props.seasonalPricing ?? []) as SeasonalRow[],
     })
-  }, [props.startDate, props.endDate, props.basePricePerNight, props.seasonalPricing])
+  }, [props.startDate, props.endDate, props.basePrice, props.seasonalPricing])
 
   let extrasTotal = 0
   for (const s of props.selectedExtras) {
-    const addon = props.availableAddons.find((a) => String(a.id) === s.addonId)
+    const addon = props.availableAddons.find((a) => String(a.id) === String(s.addonId))
     if (!addon) continue
-    const qty = Math.max(1, Number(s.quantity ?? 1))
-    extrasTotal += addon.pricingType === 'perDay' ? addon.price * qty * nights : addon.price * qty
+    const q = Math.max(1, Number(s.quantity ?? 1))
+    extrasTotal += addon.pricingType === 'perDay' ? addon.price * q * units : addon.price * q
   }
 
-  const lodgingTotal = pricing.lodgingTotal
-  const total = lodgingTotal + extrasTotal + Number(props.serviceFee ?? 0)
+  // ✅ mnożymy koszty zależne od liczby sztuk
+  const lodgingTotal = pricing.lodgingTotal * qty
+  const extrasTotalMultiplied = extrasTotal * qty
+
+  // ✅ serviceFee jako opłata za rezerwację (nie mnożymy)
+  const total = lodgingTotal + extrasTotalMultiplied + Number(props.serviceFee ?? 0)
 
   useEffect(() => {
     props.onTotalChange?.(total)
@@ -177,10 +187,12 @@ export function PriceSummary(props: {
   const payableNow = useMemo(() => {
     return calcPayableNow(total, {
       paymentMode: props.paymentMode,
-      depositType: props.depositType ?? undefined,
+      depositType: (props.depositType ?? undefined) as any,
       depositValue: props.depositValue ?? undefined,
     })
   }, [total, props.paymentMode, props.depositType, props.depositValue])
+
+  const unitLabel = props.unitType === 'dzien' ? 'dzień' : 'noc'
 
   const depositLabel =
     props.paymentMode === 'deposit'
@@ -189,32 +201,26 @@ export function PriceSummary(props: {
         : `Zaliczka (${formatPLN(Number(props.depositValue ?? 0))})`
       : 'Do zapłaty teraz'
 
-  const segments = pricing.segments ?? []
-
-  // ile nocy z wybranego zakresu wpada w sezony (po nazwie)
-  const seasonalNightsByName = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const seg of segments) {
-      if (seg.label === 'Poza sezonem') continue
-      m.set(seg.label, (m.get(seg.label) ?? 0) + seg.nights)
-    }
-    return m
-  }, [segments])
-
-  const nightsInSeasons = useMemo(() => {
-    let sum = 0
-    for (const v of seasonalNightsByName.values()) sum += v
-    return sum
-  }, [seasonalNightsByName])
-
-  // ✅ baza zawsze stała (basePricePerNight), a liczba nocy bazy = tylko poza sezonami
-  const basePrice = Number(props.basePricePerNight ?? 0)
-  const baseNights = Math.max(0, nights - nightsInSeasons)
-
-  // ✅ sezonówki zawsze widoczne jeśli istnieją w przyczepie (nawet gdy brak dat -> 0 nocy)
   const allSeasons = useMemo(() => {
     return [...(props.seasonalPricing ?? [])].sort((a, b) => (a.dateFrom < b.dateFrom ? -1 : 1))
   }, [props.seasonalPricing])
+
+  const seasonalUnitsByName = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const seg of pricing.segments ?? []) {
+      if (seg.label === 'Poza sezonem') continue
+      m.set(seg.label, (m.get(seg.label) ?? 0) + seg.units)
+    }
+    return m
+  }, [pricing.segments])
+
+  const unitsInSeasons = useMemo(() => {
+    let sum = 0
+    for (const v of seasonalUnitsByName.values()) sum += v
+    return sum
+  }, [seasonalUnitsByName])
+
+  const baseUnits = Math.max(0, units - unitsInSeasons)
 
   return (
     <Card>
@@ -223,32 +229,41 @@ export function PriceSummary(props: {
       </CardHeader>
 
       <CardContent className="grid gap-2 text-sm">
+        {qty > 1 ? (
+          <div className="flex items-center justify-between">
+            <span>Ilość sztuk</span>
+            <span className="font-medium">{qty}</span>
+          </div>
+        ) : null}
+
         <div className="flex items-center justify-between">
-          <span>Cena standardowa / noc</span>
-          <span className="font-medium">{formatPLN(basePrice)}</span>
+          <span>Cena standardowa / {unitLabel}</span>
+          <span className="font-medium">{formatPLN(Number(props.basePrice ?? 0))}</span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span>Liczba nocy</span>
-          <span className="font-medium">{baseNights}</span>
+          <span>Liczba {props.unitType === 'dzien' ? 'dni' : 'nocy'} (poza sezonami)</span>
+          <span className="font-medium">{baseUnits}</span>
         </div>
 
         {allSeasons.length ? (
-          <div className="grid gap-2">
+          <div className="grid gap-2" aria-label="Ceny sezonowe">
             {allSeasons.map((s, idx) => {
               const seasonName = String(s.name ?? `Sezon ${idx + 1}`)
-              const seasonNights = seasonalNightsByName.get(seasonName) ?? 0
+              const seasonUnits = seasonalUnitsByName.get(seasonName) ?? 0
 
               return (
                 <div key={`${seasonName}-${idx}`} className="grid gap-1">
                   <div className="flex items-center justify-between">
-                    <span className="">Cena okresowa ({seasonName}) / noc</span>
-                    <span className="font-medium">{formatPLN(Number(s.pricePerNight ?? 0))} </span>
+                    <span>
+                      Cena sezonowa ({seasonName}) / {unitLabel}
+                    </span>
+                    <span className="font-medium">{formatPLN(Number(s.price ?? 0))}</span>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span>Liczba nocy</span>
-                    <span className="font-medium">{seasonNights}</span>
+                    <span>Liczba {props.unitType === 'dzien' ? 'dni' : 'nocy'}</span>
+                    <span className="font-medium">{seasonUnits}</span>
                   </div>
                 </div>
               )
@@ -257,13 +272,13 @@ export function PriceSummary(props: {
         ) : null}
 
         <div className="flex items-center justify-between">
-          <span>Noclegi</span>
+          <span>Noclegi / wynajem</span>
           <span className="font-medium">{formatPLN(lodgingTotal)}</span>
         </div>
 
         <div className="flex items-center justify-between">
           <span>Dodatki</span>
-          <span className="font-medium">{formatPLN(extrasTotal)}</span>
+          <span className="font-medium">{formatPLN(extrasTotalMultiplied)}</span>
         </div>
 
         <div className="flex items-center justify-between">

@@ -1,128 +1,114 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
+import { HeroArt } from './HeroArtClient'
 
 type Props = {
   siteName: string
-  heroDesktopSrc?: string
-  heroMobileSrc?: string
 }
 
-export function HomeHero({
-  heroDesktopSrc = '/images/image-1--desktop.jpeg',
-  heroMobileSrc = '/images/image-1--mobile.jpeg', // na razie to samo
-}: Props) {
+export function HomeHero({ siteName }: Props) {
   return (
     <section
       aria-labelledby="hero-heading"
       className={[
-        "relative overflow-hidden shadow-sm",
-        // ✅ mobile: pełna szerokość ekranu, nawet jeśli rodzic ma max-w + px
-        "w-screen left-1/2 -translate-x-1/2",
-        // ✅ desktop: normalnie w layoucie (żeby nie rozjechać md+)
-        "md:w-full md:left-auto md:translate-x-0",
-        // ramka tylko na md+ (żeby na mobile nie rysować “paska”)
-        "md:border md:rounded-lg md:shadow-sm",
-      ].join(" ")}
+        'relative overflow-hidden',
+        'w-screen left-1/2 -translate-x-1/2',
+        'md:w-full md:left-auto md:translate-x-0',
+        // ✅ wchodzimy pod navbar (używa --header-h z SiteHeader)
+        '-mt-[var(--header-h)] pt-[var(--header-h)]',
+      ].join(' ')}
     >
-      {/* MOBILE: full viewport */}
-      <div className="relative min-h-[100svh] md:hidden">
-        <Image
-          src={heroMobileSrc}
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover"
-        />
-
-        {/* overlay pod czytelność */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/35 to-black/70"
-        />
-
-        {/* content na dole, bez “naokoło” */}
-       <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-24">
-        <h1
-          id="hero-heading"
-          className="text-balance text-4xl font-semibold tracking-tight text-white"
-        >
-          Wynajem Przyczep Campingowych.
-          Klarownie, Szybko, Wygodnie.
-        </h1>
-
-        <p className="mt-2 text-pretty text-sm text-white/90">
-          wybierz przyczepę, sprawdź terminy i zarezerwuj w kilku krokach.
-        </p>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button asChild variant="default" className="min-h-[44px] w-full">
-            <Link href="/rezerwacje">Rezerwuj</Link>
-          </Button>
-
-          <Button
-            asChild
-            variant="secondary"
-            className="min-h-[44px] w-full border-white/70 bg-white/10 text-white hover:bg-white/20 hover:text-white"
-          >
-            <Link href="/przyczepy">Przyczepy</Link>
-          </Button>
-        </div>
+      {/* tło hero */}
+      <div aria-hidden="true" className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-white to-[oklch(97%_0_0)]" />
+        <div className="absolute -top-24 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-[oklch(95%_0.03_152deg)] blur-3xl opacity-70" />
+        <div className="absolute -bottom-36 left-10 h-72 w-72 rounded-full bg-[oklch(96.5%_0.006_250deg)] blur-3xl opacity-70" />
       </div>
 
-      </div>
+      <div className="relative mx-auto max-w-[1400px] px-4 pb-8 md:px-6">
+        <div className="min-h-[calc(100svh-var(--header-h))] py-10 md:py-12 flex flex-col justify-center">
+          {/* ✅ wycentrowany tekst */}
+          <header className="mx-auto max-w-3xl text-center">
+            <h1
+              id="hero-heading"
+              className="text-balance text-3xl font-semibold tracking-tight md:text-5xl leading-[1.05]"
+            >
+              Wybierz styl podróży.
+              <span className="block text-foreground/70">Zarezerwuj w kilka kliknięć.</span>
+            </h1>
+          </header>
 
-      {/* DESKTOP: dobry aspekt ratio, nie full viewport */}
-      <div className="relative hidden md:block">
-        {/* wysokość: wygląda jak hero-banner, nie “ściana” */}
-        <div className="relative h-[520px] lg:h-[560px]">
-          <Image
-            src={heroDesktopSrc}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
+          <div className="mt-6 grid grid-cols-1 gap-4 md:mt-8 md:gap-6">
+            {/* CARD 1 — Camper: tekst LEWO, obraz PRAWO */}
+            <div className="relative overflow-hidden rounded-2xl border bg-white/70 shadow-sm backdrop-blur">
+              <div className="relative z-10 grid items-center gap-4 p-5 md:grid-cols-2 md:p-6 min-h-[260px] md:min-h-[320px]">
+                {/* LEWO: tekst */}
+                <div className="order-2 md:order-1 lg:ml-20">
+                  <p className="text-xs font-medium tracking-wide text-foreground/60">Przyczepa</p>
 
-          {/* overlay delikatniejszy niż mobile */}
-          <div aria-hidden="true" className="absolute inset-0">
-            {/* winieta: ciemniej po bokach */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.05)_0%,rgba(0,0,0,0.35)_70%,rgba(0,0,0,0.55)_100%)]" />
-            {/* dodatkowy gradient z lewej pod czytelność tekstu */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/25 to-transparent" />
-          </div>
+                  <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight md:text-4xl">
+                    Camper?
+                  </h2>
 
-          <div className="absolute inset-0 z-10 mx-auto flex max-w-6xl items-center  pt-54 mr-40">
+                  <p className="mt-2 max-w-[44ch] text-sm text-foreground/70 md:text-base">
+                    Komfort i niezależność. Sprawdź terminy.
+                  </p>
 
-            <div className="max-w-2xl mdmt-32">
-              <h1
-                className="text-balance text-5xl font-semibold  tracking-tight text-white"
-              >
-                Wynajem przyczep campingowych — szybko, wygodnie, online.
-              </h1>
+                  <div className="mt-5">
+                    <Button asChild className="min-h-[44px] px-6">
+                      <Link href="/oferta?type=przyczepa">Zobacz ofertę</Link>
+                    </Button>
+                  </div>
+                </div>
 
-              <p className="mt-3 text-pretty text-base text-white/90">
-                wybierz przyczepę, sprawdź terminy i zarezerwuj w kilku krokach.
-              </p>
+                {/* PRAWO: obraz */}
+                <div className="relative order-1 md:order-2">
+                  <HeroArt
+                    side="right"
+                    src="/images/hero-camper.png"
+                    alt=""
+                    className={['w-[320px] mx-auto', 'md:w-[420px] md:ml-auto md:mr-0'].join(' ')}
+                  />
+                </div>
+              </div>
+            </div>
 
-              <div className="mt-5 flex items-center gap-3">
+            {/* CARD 2 — E-bike: obraz LEWO, tekst PRAWO */}
+            <div className="relative overflow-hidden rounded-2xl border bg-white/70 shadow-sm backdrop-blur">
+              <div className="relative z-10 grid items-center gap-4 p-5 md:grid-cols-2 md:p-6 min-h-[260px] md:min-h-[320px]">
+                {/* LEWO: obraz */}
+                <div className="relative order-1">
+                  <HeroArt
+                    side="left"
+                    src="/images/e-bike-black--left.png"
+                    alt=""
+                    className={['w-[340px] mx-auto', 'md:w-[420px] md:ml-0 md:mr-auto'].join(' ')}
+                  />
+                </div>
 
-                <Button asChild variant="default" className="min-h-[24px] px-10">
-                  <Link href="/rezerwacje">Rezerwuj</Link>
-                </Button>
+                {/* PRAWO: tekst */}
+                <div className="order-2 md:order-2 lg:ml-20">
+                  <p className="text-xs font-medium tracking-wide text-foreground/60">E-bike</p>
 
-                <Button
-                  asChild
-                  variant="outline"
-                  className="min-h-[44px] border-white/70 bg-white/10 text-white hover:bg-white/20 hover:text-white"
-                >
-                  <Link href="/przyczepy">Zobacz przyczepy</Link>
-                </Button>
+                  <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight md:text-4xl">
+                    A może E-bike?
+                  </h2>
+
+                  <p className="mt-2 max-w-[48ch] text-sm text-foreground/70 md:text-base">
+                    Szybko i lekko. Zobacz dostępne modele.
+                  </p>
+
+                  <div className="mt-5">
+                    <Button asChild className="min-h-[44px] px-6">
+                      <Link href="/oferta?type=ebike">Zobacz ofertę</Link>
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* jeśli nadal łapie scroll na niektórych ekranach, zmniejsz mt-6 -> mt-4 */}
         </div>
       </div>
     </section>

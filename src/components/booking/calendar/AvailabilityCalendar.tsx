@@ -19,7 +19,7 @@ import { CalendarMonthNav } from './CalendarMonthNav'
 import { CalendarGridReadonly } from './CalendarGridReadonly'
 
 export function AvailabilityCalendar(props: {
-  trailerId: string
+  resourceId: string
   title?: string
   availability?: Availability
 }) {
@@ -35,23 +35,21 @@ export function AvailabilityCalendar(props: {
   const range = useMemo(() => gridToRange(grid, month), [grid, month])
 
   const { availability: apiAvailability, loading } = useAvailability({
-    trailerId: props.trailerId,
+    resourceId: props.resourceId,
     range,
-    enabled: Boolean(props.trailerId),
+    enabled: Boolean(props.resourceId),
   })
 
-  // ✅ NEW: fetchedOnce jak w ResourceGrid
   const [fetchedOnce, setFetchedOnce] = useState(false)
   useEffect(() => {
-    if (!props.trailerId) {
+    if (!props.resourceId) {
       setFetchedOnce(false)
       return
     }
     if (!loading) setFetchedOnce(true)
-  }, [loading, props.trailerId])
+  }, [loading, props.resourceId])
 
-  // ✅ NEW: gating (pierwsze wejście + zmiana miesiąca)
-  const isGatedLoading = Boolean(props.trailerId) && (!fetchedOnce || loading)
+  const isGatedLoading = Boolean(props.resourceId) && (!fetchedOnce || loading)
 
   const availability = props.availability ?? apiAvailability
   const bookedSet = useMemo(() => toSet(availability.booked ?? []), [availability.booked])
