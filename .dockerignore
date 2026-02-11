@@ -1,0 +1,19 @@
+.git
+.next
+node_modules
+.pnpm-store
+.vscode
+.cursor
+.idea
+.DS_Store
+*.log
+
+# testy
+playwright-report
+test-results
+coverage
+tests
+
+# env (nie powinno iść do obrazu)
+.env
+.env.*
