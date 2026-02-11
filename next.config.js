@@ -12,7 +12,7 @@ const nextConfig = {
       // ✅ Twoja domena (prod)
       {
         protocol: 'https',
-        hostname: 'przyczepy-production.up.railway.app',
+        hostname: 'przyczepy-rowery-production.up.railway.app',
       },
 
       // ✅ localhost (dev)
