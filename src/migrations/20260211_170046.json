@@ -1263,6 +1263,13 @@
           "notNull": true,
           "default": true
         },
+        "featured": {
+          "name": "featured",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
         "ilosc_sztuk": {
           "name": "ilosc_sztuk",
           "type": "numeric",
@@ -1287,55 +1294,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
-        },
-        "przyczepa_dmc": {
-          "name": "przyczepa_dmc",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "przyczepa_ilosc_osob": {
-          "name": "przyczepa_ilosc_osob",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ebike_marka": {
-          "name": "ebike_marka",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ebike_model": {
-          "name": "ebike_model",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ebike_rozmiar_ramy": {
-          "name": "ebike_rozmiar_ramy",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ebike_bateria_wh": {
-          "name": "ebike_bateria_wh",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ebike_zasieg_km": {
-          "name": "ebike_zasieg_km",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ebike_typ": {
-          "name": "ebike_typ",
-          "type": "enum_zasoby_ebike_typ",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
         },
         "cena_jednostka": {
           "name": "cena_jednostka",
@@ -1417,6 +1375,21 @@
           "columns": [
             {
               "expression": "active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "zasoby_featured_idx": {
+          "name": "zasoby_featured_idx",
+          "columns": [
+            {
+              "expression": "featured",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1999,6 +1972,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "return_date": {
+          "name": "return_date",
+          "type": "timestamp(3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "enum_rezerwacje_status",
@@ -2156,6 +2135,21 @@
           "columns": [
             {
               "expression": "end_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "rezerwacje_return_date_idx": {
+          "name": "rezerwacje_return_date_idx",
+          "columns": [
+            {
+              "expression": "return_date",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3411,69 +3405,91 @@
           "primaryKey": true,
           "notNull": true
         },
-        "booking_enabled": {
-          "name": "booking_enabled",
+        "dla_przyczep_enabled": {
+          "name": "dla_przyczep_enabled",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
           "default": true
         },
-        "ogolne_service_fee": {
-          "name": "ogolne_service_fee",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "ogolne_payment_mode": {
-          "name": "ogolne_payment_mode",
-          "type": "enum_ustawienia_rezerwacji_ogolne_payment_mode",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'full'"
-        },
-        "ogolne_deposit_type": {
-          "name": "ogolne_deposit_type",
-          "type": "enum_ustawienia_rezerwacji_ogolne_deposit_type",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "'percent'"
-        },
-        "ogolne_deposit_value": {
-          "name": "ogolne_deposit_value",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
         "dla_przyczep_min_units": {
           "name": "dla_przyczep_min_units",
           "type": "numeric",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "default": 1
         },
         "dla_przyczep_service_fee": {
           "name": "dla_przyczep_service_fee",
           "type": "numeric",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "default": 0
+        },
+        "dla_przyczep_payment_mode": {
+          "name": "dla_przyczep_payment_mode",
+          "type": "enum_ustawienia_rezerwacji_dla_przyczep_payment_mode",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'full'"
+        },
+        "dla_przyczep_deposit_type": {
+          "name": "dla_przyczep_deposit_type",
+          "type": "enum_ustawienia_rezerwacji_dla_przyczep_deposit_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'percent'"
+        },
+        "dla_przyczep_deposit_value": {
+          "name": "dla_przyczep_deposit_value",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dla_rowerow_enabled": {
+          "name": "dla_rowerow_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         },
         "dla_rowerow_min_units": {
           "name": "dla_rowerow_min_units",
           "type": "numeric",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "default": 1
         },
         "dla_rowerow_service_fee": {
           "name": "dla_rowerow_service_fee",
           "type": "numeric",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "default": 0
+        },
+        "dla_rowerow_payment_mode": {
+          "name": "dla_rowerow_payment_mode",
+          "type": "enum_ustawienia_rezerwacji_dla_rowerow_payment_mode",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'full'"
+        },
+        "dla_rowerow_deposit_type": {
+          "name": "dla_rowerow_deposit_type",
+          "type": "enum_ustawienia_rezerwacji_dla_rowerow_deposit_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'percent'"
+        },
+        "dla_rowerow_deposit_value": {
+          "name": "dla_rowerow_deposit_value",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
         },
         "regulamin_pdf_id": {
           "name": "regulamin_pdf_id",
@@ -3600,16 +3616,6 @@
         "ebike"
       ]
     },
-    "public.enum_zasoby_ebike_typ": {
-      "name": "enum_zasoby_ebike_typ",
-      "schema": "public",
-      "values": [
-        "mtb",
-        "city",
-        "trekking",
-        "gravel"
-      ]
-    },
     "public.enum_zasoby_cena_jednostka": {
       "name": "enum_zasoby_cena_jednostka",
       "schema": "public",
@@ -3656,16 +3662,32 @@
         "refunded"
       ]
     },
-    "public.enum_ustawienia_rezerwacji_ogolne_payment_mode": {
-      "name": "enum_ustawienia_rezerwacji_ogolne_payment_mode",
+    "public.enum_ustawienia_rezerwacji_dla_przyczep_payment_mode": {
+      "name": "enum_ustawienia_rezerwacji_dla_przyczep_payment_mode",
       "schema": "public",
       "values": [
         "full",
         "deposit"
       ]
     },
-    "public.enum_ustawienia_rezerwacji_ogolne_deposit_type": {
-      "name": "enum_ustawienia_rezerwacji_ogolne_deposit_type",
+    "public.enum_ustawienia_rezerwacji_dla_przyczep_deposit_type": {
+      "name": "enum_ustawienia_rezerwacji_dla_przyczep_deposit_type",
+      "schema": "public",
+      "values": [
+        "percent",
+        "fixed"
+      ]
+    },
+    "public.enum_ustawienia_rezerwacji_dla_rowerow_payment_mode": {
+      "name": "enum_ustawienia_rezerwacji_dla_rowerow_payment_mode",
+      "schema": "public",
+      "values": [
+        "full",
+        "deposit"
+      ]
+    },
+    "public.enum_ustawienia_rezerwacji_dla_rowerow_deposit_type": {
+      "name": "enum_ustawienia_rezerwacji_dla_rowerow_deposit_type",
       "schema": "public",
       "values": [
         "percent",
@@ -3691,6 +3713,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "edf41cf0-05eb-4470-aaaf-245daa348767",
+  "id": "5916e2ef-85fa-4170-9b9d-bc30bcf971d5",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }

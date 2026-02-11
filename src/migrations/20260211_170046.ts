@@ -5,14 +5,15 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
    CREATE TYPE "public"."enum_dodatki_dostepne_dla" AS ENUM('przyczepa', 'ebike');
   CREATE TYPE "public"."enum_dodatki_pricing_type" AS ENUM('perBooking', 'perDay');
   CREATE TYPE "public"."enum_zasoby_typ_zasobu" AS ENUM('przyczepa', 'ebike');
-  CREATE TYPE "public"."enum_zasoby_ebike_typ" AS ENUM('mtb', 'city', 'trekking', 'gravel');
   CREATE TYPE "public"."enum_zasoby_cena_jednostka" AS ENUM('noc', 'dzien');
   CREATE TYPE "public"."enum_rezerwacje_snapshot_extras_snapshot_pricing_type" AS ENUM('perBooking', 'perDay');
   CREATE TYPE "public"."enum_rezerwacje_status" AS ENUM('pending_payment', 'deposit_paid', 'paid', 'confirmed', 'cancelled');
   CREATE TYPE "public"."enum_platnosci_provider" AS ENUM('stripe', 'p24');
   CREATE TYPE "public"."enum_platnosci_status" AS ENUM('created', 'pending', 'succeeded', 'failed', 'refunded');
-  CREATE TYPE "public"."enum_ustawienia_rezerwacji_ogolne_payment_mode" AS ENUM('full', 'deposit');
-  CREATE TYPE "public"."enum_ustawienia_rezerwacji_ogolne_deposit_type" AS ENUM('percent', 'fixed');
+  CREATE TYPE "public"."enum_ustawienia_rezerwacji_dla_przyczep_payment_mode" AS ENUM('full', 'deposit');
+  CREATE TYPE "public"."enum_ustawienia_rezerwacji_dla_przyczep_deposit_type" AS ENUM('percent', 'fixed');
+  CREATE TYPE "public"."enum_ustawienia_rezerwacji_dla_rowerow_payment_mode" AS ENUM('full', 'deposit');
+  CREATE TYPE "public"."enum_ustawienia_rezerwacji_dla_rowerow_deposit_type" AS ENUM('percent', 'fixed');
   CREATE TYPE "public"."enum_ustawienia_rezerwacji_payment_provider_default" AS ENUM('stripe', 'p24');
   CREATE TABLE "media" (
   	"id" serial PRIMARY KEY NOT NULL,
@@ -146,18 +147,11 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"nazwa" varchar NOT NULL,
   	"slug" varchar,
   	"active" boolean DEFAULT true NOT NULL,
+  	"featured" boolean DEFAULT false,
   	"ilosc_sztuk" numeric DEFAULT 1 NOT NULL,
   	"opis_krotki" varchar,
   	"opis_dlugi" jsonb,
   	"hero_media_id" integer NOT NULL,
-  	"przyczepa_dmc" varchar,
-  	"przyczepa_ilosc_osob" numeric,
-  	"ebike_marka" varchar,
-  	"ebike_model" varchar,
-  	"ebike_rozmiar_ramy" varchar,
-  	"ebike_bateria_wh" numeric,
-  	"ebike_zasieg_km" numeric,
-  	"ebike_typ" "enum_zasoby_ebike_typ",
   	"cena_jednostka" "enum_zasoby_cena_jednostka" DEFAULT 'noc' NOT NULL,
   	"cena_base_price" numeric NOT NULL,
   	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
@@ -207,6 +201,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"ilosc" numeric DEFAULT 1 NOT NULL,
   	"start_date" timestamp(3) with time zone NOT NULL,
   	"end_date" timestamp(3) with time zone NOT NULL,
+  	"return_date" timestamp(3) with time zone,
   	"status" "enum_rezerwacje_status" DEFAULT 'pending_payment' NOT NULL,
   	"klient_full_name" varchar NOT NULL,
   	"klient_email" varchar NOT NULL,
@@ -319,15 +314,18 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   CREATE TABLE "ustawienia_rezerwacji" (
   	"id" serial PRIMARY KEY NOT NULL,
-  	"booking_enabled" boolean DEFAULT true NOT NULL,
-  	"ogolne_service_fee" numeric DEFAULT 0 NOT NULL,
-  	"ogolne_payment_mode" "enum_ustawienia_rezerwacji_ogolne_payment_mode" DEFAULT 'full' NOT NULL,
-  	"ogolne_deposit_type" "enum_ustawienia_rezerwacji_ogolne_deposit_type" DEFAULT 'percent',
-  	"ogolne_deposit_value" numeric,
-  	"dla_przyczep_min_units" numeric DEFAULT 1 NOT NULL,
-  	"dla_przyczep_service_fee" numeric DEFAULT 0 NOT NULL,
-  	"dla_rowerow_min_units" numeric DEFAULT 1 NOT NULL,
-  	"dla_rowerow_service_fee" numeric DEFAULT 0 NOT NULL,
+  	"dla_przyczep_enabled" boolean DEFAULT true NOT NULL,
+  	"dla_przyczep_min_units" numeric DEFAULT 1,
+  	"dla_przyczep_service_fee" numeric DEFAULT 0,
+  	"dla_przyczep_payment_mode" "enum_ustawienia_rezerwacji_dla_przyczep_payment_mode" DEFAULT 'full',
+  	"dla_przyczep_deposit_type" "enum_ustawienia_rezerwacji_dla_przyczep_deposit_type" DEFAULT 'percent',
+  	"dla_przyczep_deposit_value" numeric,
+  	"dla_rowerow_enabled" boolean DEFAULT true NOT NULL,
+  	"dla_rowerow_min_units" numeric DEFAULT 1,
+  	"dla_rowerow_service_fee" numeric DEFAULT 0,
+  	"dla_rowerow_payment_mode" "enum_ustawienia_rezerwacji_dla_rowerow_payment_mode" DEFAULT 'full',
+  	"dla_rowerow_deposit_type" "enum_ustawienia_rezerwacji_dla_rowerow_deposit_type" DEFAULT 'percent',
+  	"dla_rowerow_deposit_value" numeric,
   	"regulamin_pdf_id" integer,
   	"polityka_prywatnosci_pdf_id" integer,
   	"payment_provider_default" "enum_ustawienia_rezerwacji_payment_provider_default" DEFAULT 'stripe' NOT NULL,
@@ -394,6 +392,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "zasoby_nazwa_idx" ON "zasoby" USING btree ("nazwa");
   CREATE UNIQUE INDEX "zasoby_slug_idx" ON "zasoby" USING btree ("slug");
   CREATE INDEX "zasoby_active_idx" ON "zasoby" USING btree ("active");
+  CREATE INDEX "zasoby_featured_idx" ON "zasoby" USING btree ("featured");
   CREATE INDEX "zasoby_ilosc_sztuk_idx" ON "zasoby" USING btree ("ilosc_sztuk");
   CREATE INDEX "zasoby_hero_media_idx" ON "zasoby" USING btree ("hero_media_id");
   CREATE INDEX "zasoby_updated_at_idx" ON "zasoby" USING btree ("updated_at");
@@ -412,6 +411,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "rezerwacje_zasob_idx" ON "rezerwacje" USING btree ("zasob_id");
   CREATE INDEX "rezerwacje_start_date_idx" ON "rezerwacje" USING btree ("start_date");
   CREATE INDEX "rezerwacje_end_date_idx" ON "rezerwacje" USING btree ("end_date");
+  CREATE INDEX "rezerwacje_return_date_idx" ON "rezerwacje" USING btree ("return_date");
   CREATE INDEX "rezerwacje_status_idx" ON "rezerwacje" USING btree ("status");
   CREATE INDEX "rezerwacje_updated_at_idx" ON "rezerwacje" USING btree ("updated_at");
   CREATE INDEX "rezerwacje_created_at_idx" ON "rezerwacje" USING btree ("created_at");
@@ -481,13 +481,14 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TYPE "public"."enum_dodatki_dostepne_dla";
   DROP TYPE "public"."enum_dodatki_pricing_type";
   DROP TYPE "public"."enum_zasoby_typ_zasobu";
-  DROP TYPE "public"."enum_zasoby_ebike_typ";
   DROP TYPE "public"."enum_zasoby_cena_jednostka";
   DROP TYPE "public"."enum_rezerwacje_snapshot_extras_snapshot_pricing_type";
   DROP TYPE "public"."enum_rezerwacje_status";
   DROP TYPE "public"."enum_platnosci_provider";
   DROP TYPE "public"."enum_platnosci_status";
-  DROP TYPE "public"."enum_ustawienia_rezerwacji_ogolne_payment_mode";
-  DROP TYPE "public"."enum_ustawienia_rezerwacji_ogolne_deposit_type";
+  DROP TYPE "public"."enum_ustawienia_rezerwacji_dla_przyczep_payment_mode";
+  DROP TYPE "public"."enum_ustawienia_rezerwacji_dla_przyczep_deposit_type";
+  DROP TYPE "public"."enum_ustawienia_rezerwacji_dla_rowerow_payment_mode";
+  DROP TYPE "public"."enum_ustawienia_rezerwacji_dla_rowerow_deposit_type";
   DROP TYPE "public"."enum_ustawienia_rezerwacji_payment_provider_default";`)
 }
