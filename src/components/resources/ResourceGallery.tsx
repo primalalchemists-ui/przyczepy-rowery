@@ -1,7 +1,7 @@
 // src/components/resources/ResourceGallery.tsx
-import Image from 'next/image'
 import { resolveMediaUrl, type MediaDoc } from '@/lib/payload'
 import { cn } from '@/lib/utils'
+import { FadeImage } from '@/components/motion/FadeImage'
 
 type GalleryItem = { media?: MediaDoc | number | string; image?: MediaDoc | number | string }
 
@@ -32,8 +32,8 @@ export function ResourceGallery(props: {
 
   return (
     <section aria-label="Galeria zdjęć" className="grid gap-3">
-      <div className="relative aspect-[16/9] overflow-hidden rounded-lg border">
-        <Image
+      <div className="relative aspect-[16/9] overflow-hidden rounded-lg border bg-muted">
+        <FadeImage
           src={main}
           alt={`${props.altBase} - zdjęcie główne`}
           fill
@@ -41,18 +41,24 @@ export function ResourceGallery(props: {
           className={cn('object-cover')}
           priority
         />
+        {/* mikro “shine” na hover (CSS-only, lekkie) */}
+        <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 hover:opacity-100" />
       </div>
 
       {rest.length > 0 ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4" role="list" aria-label="Pozostałe zdjęcia">
           {rest.map((u, idx) => (
-            <div key={u} role="listitem" className="relative aspect-[4/3] overflow-hidden rounded-lg border">
-              <Image
+            <div
+              key={`${u}-${idx}`}
+              role="listitem"
+              className="relative aspect-[4/3] overflow-hidden rounded-lg border bg-muted"
+            >
+              <FadeImage
                 src={u}
                 alt={`${props.altBase} - zdjęcie ${idx + 2}`}
                 fill
                 sizes="(max-width: 768px) 50vw, 200px"
-                className="object-cover"
+                className="object-cover transition-transform duration-300 hover:scale-[1.02]"
               />
             </div>
           ))}

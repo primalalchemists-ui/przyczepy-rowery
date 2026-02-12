@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { motion, useReducedMotion } from 'framer-motion'
 
 import type { ResourceDoc } from '@/lib/payload'
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,7 @@ export function ResourceCarousel(props: {
   onSelect: (id: string) => void
   ariaLabel?: string
 }) {
+  const reduce = useReducedMotion()
   const resources = Array.isArray(props.resources) ? props.resources : []
 
   const frameRef = useRef<HTMLDivElement | null>(null)
@@ -158,19 +160,23 @@ export function ResourceCarousel(props: {
             scrollPaddingRight: '12px',
           }}
         >
-          {resources.map((r) => {
+          {resources.map((r, i) => {
             const id = toId((r as any).id)
             const selected = id === props.selectedId
 
             return (
-              <div
+              <motion.div
                 key={id}
                 role="listitem"
                 className="shrink-0"
                 style={{ width: `${cardWidth}px`, scrollSnapAlign: 'start' }}
+                initial={reduce ? { opacity: 1 } : { opacity: 0, y: 10 }}
+                animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, ease: 'easeOut', delay: reduce ? 0 : i * 0.03 }}
+                whileHover={reduce ? undefined : { y: -2 }}
               >
                 <ResourceCard zasob={r} selected={selected} onSelect={() => props.onSelect(id)} />
-              </div>
+              </motion.div>
             )
           })}
         </div>

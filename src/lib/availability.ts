@@ -246,3 +246,146 @@ export async function filterResourcesByAvailability(args: {
 export function getResourcePrice(resource: any) {
   return Number(resource?.cena?.basePrice ?? 0)
 }
+
+/**
+ * ✅ Batch: zwróć ID zasobów dostępnych w zakresie.
+ * Robi to w 3 zapytaniach DB (zasoby + rezerwacje + blokady),
+ * zamiast robić 3 zapytania na KAŻDY zasób.
+ */
+export async function getAvailableResourceIdsForRange(args: { resourceIds: string[]; from: Date; to: Date }) {
+  const payload = await getPayload({ config })
+
+  const from = startOfDayUTC(args.from)
+  const to = addDaysUTC(startOfDayUTC(args.to), 1) // UI inclusive -> internal end exclusive + include last day
+
+  const ids = (args.resourceIds ?? []).map(normalizeRelId)
+  if (!ids.length) return []
+
+  // ===== RESOURCES + STOCK + UNIT =====
+  const resourcesRes = await payload.find({
+    collection: 'zasoby',
+    depth: 0,
+    limit: 5000,
+    overrideAccess: true,
+    where: {
+      id: { in: ids as any },
+    },
+  })
+
+  const resources = resourcesRes.docs as any[]
+  const stockById = new Map<string, number>()
+  const shouldBlockReturnDayById = new Map<string, boolean>()
+
+  for (const r of resources) {
+    const idStr = String(r?.id)
+    const stock = getResourceStock(r)
+
+    const unitType = String(r?.cena?.jednostka ?? (r?.typZasobu === 'ebike' ? 'dzien' : 'noc')) as 'noc' | 'dzien'
+    const shouldBlockReturnDay = unitType === 'noc'
+
+    stockById.set(idStr, stock)
+    shouldBlockReturnDayById.set(idStr, shouldBlockReturnDay)
+  }
+
+  // ===== QUERY BOOKINGS + BLOCKS for ALL resources =====
+  const occupyingStatuses: BookingStatus[] = ['pending_payment', 'deposit_paid', 'paid', 'confirmed']
+
+  const bookingsRes = await payload.find({
+    collection: 'rezerwacje',
+    depth: 0,
+    limit: 5000,
+    overrideAccess: true,
+    where: {
+      and: [
+        { zasob: { in: ids as any } },
+        { status: { in: occupyingStatuses as any } },
+        { startDate: { less_than: to.toISOString() } },
+        { endDate: { greater_than: from.toISOString() } },
+      ],
+    },
+  })
+
+  const blocksRes = await payload.find({
+    collection: 'blokady',
+    depth: 0,
+    limit: 5000,
+    overrideAccess: true,
+    where: {
+      and: [
+        { zasob: { in: ids as any } },
+        { active: { equals: true } },
+        { dateFrom: { less_than: to.toISOString() } },
+        { dateTo: { greater_than: from.toISOString() } },
+      ],
+    },
+  })
+
+  // ===== countsByResourceDay =====
+  const bookingsCount = new Map<string, Map<string, number>>() // id -> day -> qty
+  const blocksCount = new Map<string, Map<string, number>>() // id -> day -> qty
+
+  function inc2(root: Map<string, Map<string, number>>, id: string, day: string, qty: number) {
+    let m = root.get(id)
+    if (!m) {
+      m = new Map<string, number>()
+      root.set(id, m)
+    }
+    m.set(day, (m.get(day) ?? 0) + qty)
+  }
+
+  for (const b of bookingsRes.docs as any[]) {
+    const resourceId = String(normalizeRelId(b?.zasob))
+    const s = toDate(b?.startDate)
+    const e = toDate(b?.endDate)
+    if (!resourceId || !s || !e) continue
+    if (!overlaps(s, e, from, to)) continue
+
+    const qty = Math.max(1, Number(b?.ilosc ?? 1))
+    const shouldBlockReturnDay = shouldBlockReturnDayById.get(resourceId) ?? true
+    const endToCount = shouldBlockReturnDay ? addDaysUTC(e, 1) : e
+    const days = expandDays(s, endToCount)
+
+    for (const day of days) inc2(bookingsCount, resourceId, day, qty)
+  }
+
+  for (const bl of blocksRes.docs as any[]) {
+    const resourceId = String(normalizeRelId(bl?.zasob))
+    const s = toDate(bl?.dateFrom)
+    const e = toDate(bl?.dateTo)
+    if (!resourceId || !s || !e) continue
+    if (!overlaps(s, e, from, to)) continue
+
+    const qty = Math.max(1, Number(bl?.ilosc ?? 1))
+    const shouldBlockReturnDay = shouldBlockReturnDayById.get(resourceId) ?? true
+    const endToCount = shouldBlockReturnDay ? addDaysUTC(e, 1) : e
+    const days = expandDays(s, endToCount)
+
+    for (const day of days) inc2(blocksCount, resourceId, day, qty)
+  }
+
+  // ===== decide availability =====
+  const requiredDays = expandDays(from, to)
+
+  const availableIds: string[] = []
+  for (const id of ids) {
+    const idStr = String(id)
+    const stock = stockById.get(idStr) ?? 0
+    if (stock <= 0) continue
+
+    const bMap = bookingsCount.get(idStr) ?? new Map<string, number>()
+    const blMap = blocksCount.get(idStr) ?? new Map<string, number>()
+
+    let ok = true
+    for (const day of requiredDays) {
+      const used = (bMap.get(day) ?? 0) + (blMap.get(day) ?? 0)
+      if (used >= stock) {
+        ok = false
+        break
+      }
+    }
+
+    if (ok) availableIds.push(idStr)
+  }
+
+  return availableIds
+}

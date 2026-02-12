@@ -7,6 +7,23 @@ export const UstawieniaStrony: GlobalConfig = {
   admin: {
     group: 'Ustawienia',
   },
+  hooks: {
+  afterChange: [
+    async () => {
+      await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/revalidate`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-revalidate-secret': process.env.REVALIDATE_SECRET!,
+        },
+        body: JSON.stringify({
+          tags: ['global:ustawienia-strony'], // albo rezerwacji
+        }),
+      })
+    },
+  ],
+},
+
   access: {
     read: () => true,
   },

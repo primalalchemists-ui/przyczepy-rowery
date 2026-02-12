@@ -1,4 +1,7 @@
 // src/app/api/availability/route.ts
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { NextResponse } from 'next/server'
 import { parseISODateOnly, getAvailabilityForResourceRange } from '@/lib/availability'
 
@@ -27,7 +30,15 @@ export async function GET(req: Request) {
       to,
     })
 
-    return NextResponse.json(result, { status: 200 })
+    return NextResponse.json(result, {
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+      },
+    })
+
   } catch (e: any) {
     console.error('❌ Availability API error:', e)
 

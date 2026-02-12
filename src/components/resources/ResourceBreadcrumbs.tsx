@@ -1,7 +1,7 @@
 // src/components/resources/ResourceBreadcrumbs.tsx
 import Link from 'next/link'
 
-export function ResourceBreadcrumbs(props: { trailerName: string }) {
+export function ResourceBreadcrumbs(props: { resourceName: string }) {
   return (
     <nav aria-label="Breadcrumb" className="mb-4">
       <ol className="flex flex-wrap items-center gap-2 text-sm">
@@ -18,7 +18,7 @@ export function ResourceBreadcrumbs(props: { trailerName: string }) {
         </li>
         <li aria-hidden="true">/</li>
         <li aria-current="page" className="font-medium">
-          {props.trailerName}
+          {props.resourceName}
         </li>
       </ol>
     </nav>

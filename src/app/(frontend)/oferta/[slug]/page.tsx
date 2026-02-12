@@ -31,7 +31,6 @@ export const revalidate = 60
 export default async function ResourceDetailPage(props: { params: Promise<{ slug: string }> }) {
   const { slug } = await props.params
   const resource = await getResourceBySlug(slug)
-  console.log('PARAM SLUG:', slug)
   if (!resource || !resource.active) return notFound()
 
   const seasonal = (resource.cena?.seasonalPricing ?? []).slice().sort((a, b) =>

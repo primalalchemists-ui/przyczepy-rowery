@@ -1,5 +1,23 @@
 import type { CollectionConfig, FieldHook } from 'payload'
 
+const revalidateZasoby = async ({ doc }: any) => {
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/revalidate`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-revalidate-secret': process.env.REVALIDATE_SECRET!,
+      },
+      body: JSON.stringify({
+        tags: ['zasoby', `zasob:${doc.slug}`],
+      }),
+    })
+  } catch (e) {
+    console.error('revalidateZasoby error', e)
+  }
+}
+
+
 const slugify = (input: string) =>
   input
     .toLowerCase()
@@ -16,6 +34,9 @@ const formatSlugHook: FieldHook = ({ value, data, originalDoc }) => {
 
 export const Zasoby: CollectionConfig = {
   slug: 'zasoby',
+   hooks: {
+    afterChange: [revalidateZasoby],
+  },
   labels: {
     singular: 'Zasób',
     plural: 'Zasoby',

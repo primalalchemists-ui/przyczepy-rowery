@@ -1,15 +1,14 @@
 // src/app/(frontend)/oferta/page.tsx
 import { listActiveResources } from '@/lib/payload'
-import { Card, CardContent } from '@/components/ui/card'
 import { OfertaFiltersBar } from '@/components/OfertaFiltersBar'
-import { filterResourcesByAvailability, parseISODateOnly } from '@/lib/availability'
-import { ResourceTileCard } from '@/components/resource-tile-card'
+import { parseISODateOnly } from '@/lib/availability'
+import { OfertaResultsClient } from '@/components/oferta/OfertaResultsClient'
 
 type SearchParams = {
   from?: string
   to?: string
   sort?: string
-  type?: 'przyczepa' | 'ebike' | '' // ✅ poprawione: ebike
+  type?: 'przyczepa' | 'ebike' | ''
 }
 
 function getResourceBasePrice(resource: any) {
@@ -19,19 +18,19 @@ function getResourceBasePrice(resource: any) {
 export default async function OfertaPage(props: { searchParams: Promise<SearchParams> }) {
   const searchParams = await props.searchParams
 
-  const from = parseISODateOnly(searchParams?.from ?? null)
-  const to = parseISODateOnly(searchParams?.to ?? null)
+  const fromISO = searchParams?.from ?? ''
+  const toISO = searchParams?.to ?? ''
+
+  // tylko do walidacji “czy daty są poprawne”
+  const from = parseISODateOnly(fromISO || null)
+  const to = parseISODateOnly(toISO || null)
+
   const sort = searchParams?.sort ?? ''
   const type = (searchParams?.type ?? '') as any
 
   let zasoby = await listActiveResources({ limit: 60, depth: 2, type })
 
-  // ✅ filtr dostępności (SSR)
-  if (from && to) {
-    zasoby = await filterResourcesByAvailability({ resources: zasoby, from, to })
-  }
-
-  // ✅ sort po cenie (bazowa)
+  // sort po cenie (bazowa) - niezależne od dostępności
   if (sort === 'price_asc' || sort === 'price_desc') {
     const dir = sort === 'price_asc' ? 1 : -1
     zasoby = [...zasoby].sort((a: any, b: any) => {
@@ -40,6 +39,8 @@ export default async function OfertaPage(props: { searchParams: Promise<SearchPa
       return (pa - pb) * dir
     })
   }
+
+  const hasDateFilter = Boolean(from && to)
 
   return (
     <main className="container mx-auto px-4 lg:px-0 py-8">
@@ -52,29 +53,13 @@ export default async function OfertaPage(props: { searchParams: Promise<SearchPa
         </header>
 
         <OfertaFiltersBar
-          initialFrom={searchParams?.from ?? ''}
-          initialTo={searchParams?.to ?? ''}
+          initialFrom={fromISO}
+          initialTo={toISO}
           initialSort={sort}
           initialType={type}
         />
 
-        {!zasoby?.length ? (
-          <Card>
-            <CardContent className="p-6 text-sm text-muted-foreground" role="status" aria-live="polite">
-              {from && to
-                ? 'Brak dostępnych zasobów w wybranym terminie.'
-                : 'Brak aktywnych zasobów w systemie. Dodaj je w panelu CMS i ustaw jako „active”.'}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-3" role="list" aria-label="Lista zasobów">
-            {zasoby.map((z: any) => (
-              <div key={z.slug} role="listitem">
-                <ResourceTileCard zasob={z} />
-              </div>
-            ))}
-          </div>
-        )}
+        <OfertaResultsClient resources={zasoby} from={fromISO} to={toISO} hasDateFilter={hasDateFilter} />
       </section>
     </main>
   )

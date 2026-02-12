@@ -323,23 +323,24 @@ export function BookingFormClient(props: {
   }, [resourceId, form])
 
   // reset po zmianie typu (ważne!)
-  const prevTypeRef = useRef<ResourceType>('przyczepa')
+ const prevTypeRef = useRef<ResourceType>('przyczepa')
+
   useEffect(() => {
-    if (prevTypeRef.current === activeType) return
-    prevTypeRef.current = activeType
+  if (prevTypeRef.current === activeType) return
+  prevTypeRef.current = activeType
 
-    const nextId = visibleResources[0] ? toId(visibleResources[0].id) : ''
-    form.setValue('trailerId', nextId, { shouldValidate: true })
+  const nextId = defaultResourceId || (visibleResources[0] ? toId(visibleResources[0].id) : '')
+  form.setValue('trailerId', nextId, { shouldValidate: true })
 
-    form.setValue('startDate', '', { shouldValidate: true, shouldDirty: true })
-    form.setValue('endDate', '', { shouldValidate: true, shouldDirty: true })
+  form.setValue('startDate', '', { shouldValidate: true, shouldDirty: true })
+  form.setValue('endDate', '', { shouldValidate: true, shouldDirty: true })
+  form.setValue('ilosc', 1, { shouldValidate: true, shouldDirty: true })
 
-    form.setValue('ilosc', 1, { shouldValidate: true, shouldDirty: true })
+  setSelectedExtras([])
+  setShowClientForm(false)
+  setAutoScroll(false)
+  }, [activeType, visibleResources, defaultResourceId, form])
 
-    setSelectedExtras([])
-    setShowClientForm(false)
-    setAutoScroll(false)
-  }, [activeType, visibleResources, form])
 
   async function onSubmit(values: BookingFormValues) {
     startTransition(async () => {

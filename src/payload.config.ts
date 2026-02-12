@@ -85,10 +85,15 @@ export default buildConfig({
   // This config helps us configure global or default features that the other editors can inherit
   editor: defaultLexical,
   db: postgresAdapter({
-    pool: {
-      connectionString: process.env.DATABASE_URL || '',
+  pool: {
+    connectionString: process.env.DATABASE_URL || '',
+    ssl: {
+      rejectUnauthorized: false,
     },
-  }),
+    keepAlive: true,
+  },
+}),
+
   collections: [Media, Users, Dodatki, Zasoby, Rezerwacje, Blokady, Platnosci],
   cors: [getServerSideURL()].filter(Boolean),
   globals: [UstawieniaStrony, UstawieniaRezerwacji],

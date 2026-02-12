@@ -81,7 +81,6 @@ export type SiteSettings = {
   seoDescription?: string | null
 }
 
-// ✅ NOWE: ustawienia per typ zasobu (zgodne z globalem)
 export type BookingTypeSettings = {
   minUnits: number
   serviceFee: number
@@ -98,7 +97,6 @@ export type BookingSettings = {
   paymentProviderDefault: 'stripe' | 'p24'
 }
 
-
 /**
  * Railway / prod:
  * - ustaw NEXT_PUBLIC_SERVER_URL na publiczny URL Twojej apki
@@ -111,30 +109,35 @@ function getBaseUrl() {
   return 'http://localhost:3000'
 }
 
-type PayloadFetchOpts = { revalidate?: number }
+type PayloadFetchOpts = {
+  /**
+   * number => ISR co X sekund
+   * false  => zawsze świeże (no-store)
+   */
+  revalidate?: number | false
+  /**
+   * tagi do on-demand revalidateTag()
+   */
+  tags?: string[]
+}
 
 async function payloadFetch<T>(path: string, opts?: PayloadFetchOpts): Promise<T | null> {
   const baseUrl = getBaseUrl()
   const url = `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`
 
-  try {
-    const res = await fetch(url, {
-      next: { revalidate: opts?.revalidate ?? 60 },
-    })
+  const isNoStore = opts?.revalidate === false
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      throw new Error(`Payload fetch failed: ${res.status} ${res.statusText} (${url}) ${text}`)
-    }
+  const res = await fetch(url, {
+    cache: isNoStore ? 'no-store' : undefined,
+    next: isNoStore ? undefined : { revalidate: opts?.revalidate ?? 60, tags: opts?.tags },
+  })
 
-    return (await res.json()) as T
-  } catch (err: any) {
-    const code = err?.cause?.code || err?.code
-    if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT') {
-      return null
-    }
-    throw err
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Payload fetch failed: ${res.status} ${res.statusText} (${url}) ${text}`)
   }
+
+  return (await res.json()) as T
 }
 
 export function resolveMediaUrl(media?: MediaDoc | number | string | null) {
@@ -149,14 +152,14 @@ export function resolveMediaUrl(media?: MediaDoc | number | string | null) {
 export async function getSiteSettings() {
   return await payloadFetch<SiteSettings>(
     `/api/globals/ustawienia-strony?depth=2&draft=false&trash=false`,
-    { revalidate: 300 },
+    { revalidate: 300, tags: ['global:ustawienia-strony'] },
   )
 }
 
 export async function getBookingSettings() {
   return await payloadFetch<BookingSettings>(
     `/api/globals/ustawienia-rezerwacji?depth=2&draft=false&trash=false`,
-    { revalidate: 60 },
+    { revalidate: 60, tags: ['global:ustawienia-rezerwacji'] },
   )
 }
 
@@ -174,11 +177,11 @@ export async function listActiveResources(params?: {
   qs.set('depth', String(depth))
   qs.set('where[active][equals]', 'true')
   qs.set('sort', '-updatedAt')
-
   if (type) qs.set('where[typZasobu][equals]', type)
 
   const data = await payloadFetch<PayloadListResponse<ResourceDoc>>(`/api/zasoby?${qs.toString()}`, {
     revalidate: 60,
+    tags: ['zasoby'],
   })
 
   return data?.docs ?? []
@@ -187,11 +190,10 @@ export async function listActiveResources(params?: {
 export async function getResourceBySlug(slug: string) {
   let safeSlug = slug
 
-  // jeśli slug przyszedł już zakodowany (%C3%B3 itd.), to go odkoduj
   try {
     safeSlug = decodeURIComponent(slug)
   } catch {
-    // jakby był “dziwny”, to zostaw
+    // leave as-is
   }
 
   const qs = new URLSearchParams()
@@ -201,8 +203,8 @@ export async function getResourceBySlug(slug: string) {
 
   const data = await payloadFetch<PayloadListResponse<ResourceDoc>>(`/api/zasoby?${qs.toString()}`, {
     revalidate: 60,
+    tags: ['zasoby', `zasob:${safeSlug}`],
   })
 
   return data?.docs?.[0] ?? null
 }
-
