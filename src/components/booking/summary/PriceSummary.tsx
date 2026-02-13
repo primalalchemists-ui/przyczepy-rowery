@@ -6,6 +6,13 @@ import type { AddonDoc } from '@/lib/payload'
 import type { SelectedExtra } from '@/components/booking/extras/types'
 import { useEffect, useMemo } from 'react'
 import { calcPayableNow } from '@/lib/booking/payable'
+import { Info } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 type SeasonalRow = {
   name: string
@@ -197,8 +204,8 @@ export function PriceSummary(props: {
   const depositLabel =
     props.paymentMode === 'deposit'
       ? props.depositType === 'percent'
-        ? `Zaliczka (${Number(props.depositValue ?? 0)}%)`
-        : `Zaliczka (${formatPLN(Number(props.depositValue ?? 0))})`
+        ? `Zadatek (${Number(props.depositValue ?? 0)}%)`
+        : `Zadatek (${formatPLN(Number(props.depositValue ?? 0))})`
       : 'Do zapłaty teraz'
 
   const allSeasons = useMemo(() => {
@@ -223,81 +230,112 @@ export function PriceSummary(props: {
   const baseUnits = Math.max(0, units - unitsInSeasons)
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Podsumowanie ceny</CardTitle>
-      </CardHeader>
+  <Card>
+    <CardHeader>
+      <CardTitle className="text-base">Podsumowanie ceny</CardTitle>
+    </CardHeader>
 
-      <CardContent className="grid gap-2 text-sm">
-        {qty > 1 ? (
-          <div className="flex items-center justify-between">
-            <span>Ilość sztuk</span>
-            <span className="font-medium">{qty}</span>
-          </div>
-        ) : null}
-
+    <CardContent className="grid gap-2 text-sm">
+      {qty > 1 ? (
         <div className="flex items-center justify-between">
-          <span>Cena standardowa / {unitLabel}</span>
-          <span className="font-medium">{formatPLN(Number(props.basePrice ?? 0))}</span>
+          <span>Ilość sztuk</span>
+          <span className="font-medium">{qty}</span>
         </div>
+      ) : null}
 
-        <div className="flex items-center justify-between">
-          <span>Liczba {props.unitType === 'dzien' ? 'dni' : 'nocy'} (poza sezonami)</span>
-          <span className="font-medium">{baseUnits}</span>
-        </div>
+      <div className="flex items-center justify-between">
+        <span>Cena standardowa / {unitLabel}</span>
+        <span className="font-medium">{formatPLN(Number(props.basePrice ?? 0))}</span>
+      </div>
 
-        {allSeasons.length ? (
-          <div className="grid gap-2" aria-label="Ceny sezonowe">
-            {allSeasons.map((s, idx) => {
-              const seasonName = String(s.name ?? `Sezon ${idx + 1}`)
-              const seasonUnits = seasonalUnitsByName.get(seasonName) ?? 0
+      <div className="flex items-center justify-between">
+        <span>Liczba {props.unitType === 'dzien' ? 'dni' : 'nocy'}</span>
+        <span className="font-medium">{baseUnits}</span>
+      </div>
 
-              return (
-                <div key={`${seasonName}-${idx}`} className="grid gap-1">
-                  <div className="flex items-center justify-between">
-                    <span>
-                      Cena sezonowa ({seasonName}) / {unitLabel}
-                    </span>
-                    <span className="font-medium">{formatPLN(Number(s.price ?? 0))}</span>
-                  </div>
+      {allSeasons.length ? (
+        <div className="grid gap-2" aria-label="Ceny sezonowe">
+          {allSeasons.map((s, idx) => {
+            const seasonName = String(s.name ?? `Sezon ${idx + 1}`)
+            const seasonUnits = seasonalUnitsByName.get(seasonName) ?? 0
 
-                  <div className="flex items-center justify-between">
-                    <span>Liczba {props.unitType === 'dzien' ? 'dni' : 'nocy'}</span>
-                    <span className="font-medium">{seasonUnits}</span>
-                  </div>
+            return (
+              <div key={`${seasonName}-${idx}`} className="grid gap-1">
+                <div className="flex items-center justify-between">
+                  <span>
+                    Cena sezonowa ({seasonName}) / {unitLabel}
+                  </span>
+                  <span className="font-medium">{formatPLN(Number(s.price ?? 0))}</span>
                 </div>
-              )
-            })}
-          </div>
-        ) : null}
 
-        <div className="flex items-center justify-between">
-          <span>Noclegi / wynajem</span>
-          <span className="font-medium">{formatPLN(lodgingTotal)}</span>
+                <div className="flex items-center justify-between">
+                  <span>Liczba {props.unitType === 'dzien' ? 'dni' : 'nocy'}</span>
+                  <span className="font-medium">{seasonUnits}</span>
+                </div>
+              </div>
+            )
+          })}
         </div>
+      ) : null}
 
-        <div className="flex items-center justify-between">
-          <span>Dodatki</span>
-          <span className="font-medium">{formatPLN(extrasTotalMultiplied)}</span>
-        </div>
+      <div className="flex items-center justify-between">
+        <span>Noclegi / wynajem</span>
+        <span className="font-medium">{formatPLN(lodgingTotal)}</span>
+      </div>
 
-        <div className="flex items-center justify-between">
-          <span>Opłata serwisowa</span>
-          <span className="font-medium">{formatPLN(Number(props.serviceFee ?? 0))}</span>
-        </div>
+      <div className="flex items-center justify-between">
+        <span>Dodatki</span>
+        <span className="font-medium">{formatPLN(extrasTotalMultiplied)}</span>
+      </div>
 
-        <div className="flex items-center justify-between">
-          <span>{depositLabel}</span>
-          <span className="font-semibold">{formatPLN(payableNow)}</span>
-        </div>
+      <div className="flex items-center justify-between">
+        <span>Opłata serwisowa</span>
+        <span className="font-medium">{formatPLN(Number(props.serviceFee ?? 0))}</span>
+      </div>
 
-        <div className="my-2 h-px bg-border" />
+      {/* ✅ Kluczowe: klient ma wiedzieć ile płaci TERAZ */}
+      <div className="flex items-center justify-between">
+        <span className="font-medium">
+          Do zapłaty teraz <span className="text-xs text-muted-foreground">({depositLabel})</span>
+        </span>
+        <span className="font-semibold">{formatPLN(payableNow)}</span>
+      </div>
 
-        <div className="flex items-center justify-between text-base">
-          <span className="font-semibold">Razem</span>
-          <span className="font-semibold">{formatPLN(total)}</span>
-        </div>
-      </CardContent>
-    </Card>
-  )
+      <div className="my-2 h-px bg-border" />
+
+      <div className="flex items-center justify-between text-base">
+        <span className="font-semibold">Razem</span>
+        <span className="font-semibold">{formatPLN(total)}</span>
+      </div>
+
+      {/* ✅ Kaucja jako „bezpieczne zabezpieczenie” */}
+     <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="font-semibold">Kaucja</span>
+
+        <Badge variant="secondary">zwrotna</Badge>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center"
+              aria-label="Informacja o kaucji"
+            >
+              <Info className="h-4 w-4 text-emerald-600 hover:text-emerald-700 transition-colors cursor-pointer" />
+            </button>
+          </PopoverTrigger>
+
+          <PopoverContent className="w-64 text-xs">
+            Kaucja jest w pełni zwrotna po bezszkodowym zwrocie.
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <span className="font-semibold">666 zł</span>
+    </div>
+    </CardContent>
+  </Card>
+)
+
 }
