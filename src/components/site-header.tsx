@@ -58,7 +58,12 @@ export function SiteHeader({ siteName }: Props) {
               </Button>
             </SheetTrigger>
 
-            <SheetContent side="right" onOpenAutoFocus={(e) => e.preventDefault()} className="p-0">
+            <SheetContent
+              side="right"
+              onOpenAutoFocus={(e) => e.preventDefault()}
+              className="p-0"
+              onCloseAutoFocus={(e) => e.preventDefault()}
+            >
               <div className="flex items-center justify-between border-b px-4 py-3">
                 <SheetHeader className="space-y-0">
                   <SheetTitle>Menu</SheetTitle>
