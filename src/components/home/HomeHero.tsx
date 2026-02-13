@@ -33,7 +33,7 @@ export function HomeHero({ siteName }: Props) {
               id="hero-heading"
               className="text-balance text-3xl font-semibold tracking-tight md:text-5xl leading-[1.05]"
             >
-              Wybierz styl podróży.
+              Podróżuj po Swojemu.
               <span className="block text-foreground/70">Zarezerwuj w kilka kliknięć.</span>
             </h1>
           </header>
@@ -44,10 +44,10 @@ export function HomeHero({ siteName }: Props) {
               <div className="relative z-10 grid items-center gap-4 p-5 md:grid-cols-2 md:p-6 min-h-[260px] md:min-h-[320px]">
                 {/* LEWO: tekst */}
                 <div className="order-2 md:order-1 lg:ml-20">
-                  <p className="text-xs font-medium tracking-wide text-foreground/60">Przyczepa</p>
+                  <p className="text-xs font-medium tracking-wide text-foreground/60">Przyczepy kempingowe</p>
 
                   <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight md:text-4xl">
-                    Camper?
+                    Rodzinny wyjazd?
                   </h2>
 
                   <p className="mt-2 max-w-[44ch] text-sm text-foreground/70 md:text-base">
@@ -88,10 +88,10 @@ export function HomeHero({ siteName }: Props) {
 
                 {/* PRAWO: tekst */}
                 <div className="order-2 md:order-2 lg:ml-20">
-                  <p className="text-xs font-medium tracking-wide text-foreground/60">E-bike</p>
+                  <p className="text-xs font-medium tracking-wide text-foreground/60">Rowery elektryczne</p>
 
                   <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight md:text-4xl">
-                    A może E-bike?
+                    Aktywny weekend?
                   </h2>
 
                   <p className="mt-2 max-w-[48ch] text-sm text-foreground/70 md:text-base">
