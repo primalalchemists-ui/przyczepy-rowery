@@ -43,7 +43,7 @@ export default async function OfertaPage(props: { searchParams: Promise<SearchPa
   const hasDateFilter = Boolean(from && to)
 
   return (
-    <main className="container mx-auto px-4 lg:px-0 py-8">
+    <section className="container mx-auto px-4 lg:px-0 py-8">
       <section aria-labelledby="oferta-heading" className="space-y-4">
         <header className="space-y-1">
           <h1 id="oferta-heading" className="text-2xl font-bold md:text-3xl">
@@ -61,6 +61,6 @@ export default async function OfertaPage(props: { searchParams: Promise<SearchPa
 
         <OfertaResultsClient resources={zasoby} from={fromISO} to={toISO} hasDateFilter={hasDateFilter} />
       </section>
-    </main>
+    </section>
   )
 }

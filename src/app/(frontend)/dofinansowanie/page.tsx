@@ -2,7 +2,7 @@ import Image from 'next/image'
 
 export default function DofinansowaniePage() {
   return (
-    <main className="mx-auto max-w-[1400px] px-4 py-8 space-y-10">
+    <section className="mx-auto max-w-[1400px] px-4 py-8 space-y-10">
       {/* Logo */}
       <div className="relative h-20 w-[320px]">
         <Image
@@ -83,6 +83,6 @@ export default function DofinansowaniePage() {
           #KorzyściDlaCiebie #NextGenerationEU #FunduszeUE
         </p> */}
       </section>
-    </main>
+    </section>
   )
 }

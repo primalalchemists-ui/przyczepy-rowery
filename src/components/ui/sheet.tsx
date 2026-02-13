@@ -16,25 +16,49 @@ const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
     ref={ref}
-    className={cn('fixed inset-0 z-40 bg-black/50', className)}
+    className={cn(
+      'fixed inset-0 z-40 bg-black/50',
+      'data-[state=open]:animate-in data-[state=open]:fade-in-0',
+      'data-[state=closed]:animate-out data-[state=closed]:fade-out-0',
+      'data-[state=open]:duration-150 data-[state=closed]:duration-120',
+      className
+    )}
     {...props}
   />
 ))
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
 const sheetVariants = cva(
-  // ✅ białe tło zawsze
-  'fixed z-50 bg-white text-black shadow-lg outline-none transition-transform duration-300',
+  'fixed z-50 bg-background text-foreground shadow-lg outline-none will-change-transform',
   {
     variants: {
       side: {
-        top: 'inset-x-0 top-0 border-b data-[state=closed]:-translate-y-full data-[state=open]:translate-y-0',
-        bottom:
-          'inset-x-0 bottom-0 border-t data-[state=closed]:translate-y-full data-[state=open]:translate-y-0',
-        left:
-          'inset-0 border-r data-[state=closed]:-translate-x-full data-[state=open]:translate-x-0',
-        right:
-          'inset-0 border-l data-[state=closed]:translate-x-full data-[state=open]:translate-x-0',
+        top: cn(
+          'inset-x-0 top-0 border-b',
+          'data-[state=open]:animate-in data-[state=open]:slide-in-from-top',
+          'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-top',
+          'data-[state=open]:duration-200 data-[state=closed]:duration-150'
+        ),
+        bottom: cn(
+          'inset-x-0 bottom-0 border-t',
+          'data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom',
+          'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom',
+          'data-[state=open]:duration-200 data-[state=closed]:duration-150'
+        ),
+        left: cn(
+          // FULLSCREEN / prawie fullscreen
+          'inset-y-0 left-0 h-dvh w-screen border-r',
+          'data-[state=open]:animate-in data-[state=open]:slide-in-from-left',
+          'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left',
+          'data-[state=open]:duration-200 data-[state=closed]:duration-150'
+        ),
+        right: cn(
+          // FULLSCREEN / prawie fullscreen
+          'inset-y-0 right-0 h-dvh w-screen border-l',
+          'data-[state=open]:animate-in data-[state=open]:slide-in-from-right',
+          'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right',
+          'data-[state=open]:duration-200 data-[state=closed]:duration-150'
+        ),
       },
     },
     defaultVariants: {

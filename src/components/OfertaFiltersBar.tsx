@@ -51,15 +51,12 @@ export function OfertaFiltersBar({ initialFrom = '', initialTo = '', initialSort
   const pathname = usePathname()
   const sp = useSearchParams()
 
-  // ✅ single source of truth: URL
   const type = (sp.get('type') ?? '') as ResourceType
   const sort = initialSort || sp.get('sort') || ''
 
-  // ✅ lokalny state tylko dla pól dat (UX w popoverach)
   const [from, setFrom] = React.useState<string>(initialFrom)
   const [to, setTo] = React.useState<string>(initialTo)
 
-  // ✅ sync po nawigacji/back/forward
   React.useEffect(() => {
     setFrom(sp.get('from') ?? '')
     setTo(sp.get('to') ?? '')
@@ -67,6 +64,31 @@ export function OfertaFiltersBar({ initialFrom = '', initialTo = '', initialSort
 
   const fromDate = React.useMemo(() => safeParseISO(from), [from])
   const toDate = React.useMemo(() => safeParseISO(to), [to])
+
+  /* ===========================
+     ✅ CONTROLLED MONTH LOGIC
+  ============================ */
+
+  const [fromMonth, setFromMonth] = React.useState<Date>(fromDate ?? today)
+  const [toMonth, setToMonth] = React.useState<Date>(toDate ?? fromDate ?? today)
+
+  React.useEffect(() => {
+    if (fromDate) setFromMonth(fromDate)
+  }, [fromDate])
+
+  React.useEffect(() => {
+    if (toDate) setToMonth(toDate)
+    else if (fromDate) setToMonth(fromDate)
+  }, [fromDate, toDate])
+
+  // jeśli ktoś zmieni "Od" na późniejszą niż "Do" → resetuj "Do"
+  React.useEffect(() => {
+    if (fromDate && toDate && toDate < fromDate) {
+      setTo('')
+    }
+  }, [fromDate, toDate])
+
+  /* =========================== */
 
   const apply = React.useCallback(
     (next: { from?: string; to?: string; sort?: string; type?: ResourceType }) => {
@@ -82,7 +104,6 @@ export function OfertaFiltersBar({ initialFrom = '', initialTo = '', initialSort
       setParam(url, 'sort', nextSort)
       setParam(url, 'type', nextType || null)
 
-      // jeśli user ustawił tylko jedną datę -> nie filtruj (czyścimy)
       const f = url.searchParams.get('from')
       const t = url.searchParams.get('to')
       if (!f || !t) {
@@ -113,6 +134,7 @@ export function OfertaFiltersBar({ initialFrom = '', initialTo = '', initialSort
   return (
     <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between mb-10">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+
         {/* TYPE */}
         <div className="flex gap-2" aria-label="Filtr typu zasobu">
           <Button type="button" variant={type === '' ? 'default' : 'outline'} onClick={() => apply({ type: '' })}>
@@ -127,7 +149,11 @@ export function OfertaFiltersBar({ initialFrom = '', initialTo = '', initialSort
             Przyczepy
           </Button>
 
-          <Button type="button" variant={type === 'ebike' ? 'default' : 'outline'} onClick={() => apply({ type: 'ebike' })}>
+          <Button
+            type="button"
+            variant={type === 'ebike' ? 'default' : 'outline'}
+            onClick={() => apply({ type: 'ebike' })}
+          >
             E-bike
           </Button>
         </div>
@@ -139,7 +165,6 @@ export function OfertaFiltersBar({ initialFrom = '', initialTo = '', initialSort
               type="button"
               variant="outline"
               className="h-10 w-full justify-between gap-3 md:w-[220px]"
-              aria-label="Wybierz datę od"
             >
               <span className="flex min-w-0 items-center gap-2">
                 <span className="text-xs text-muted-foreground">Od</span>
@@ -153,6 +178,8 @@ export function OfertaFiltersBar({ initialFrom = '', initialTo = '', initialSort
             <Calendar
               mode="single"
               selected={fromDate}
+              month={fromMonth}
+              onMonthChange={setFromMonth}
               onSelect={(d) => setFrom(d ? toISODate(d) : '')}
               locale={pl}
               disabled={(date) => date < today}
@@ -167,7 +194,6 @@ export function OfertaFiltersBar({ initialFrom = '', initialTo = '', initialSort
               type="button"
               variant="outline"
               className="h-10 w-full justify-between gap-3 md:w-[220px]"
-              aria-label="Wybierz datę do"
             >
               <span className="flex min-w-0 items-center gap-2">
                 <span className="text-xs text-muted-foreground">Do</span>
@@ -181,19 +207,23 @@ export function OfertaFiltersBar({ initialFrom = '', initialTo = '', initialSort
             <Calendar
               mode="single"
               selected={toDate}
+              month={toMonth}
+              onMonthChange={setToMonth}
               onSelect={(d) => setTo(d ? toISODate(d) : '')}
               locale={pl}
-              disabled={(date) => date < today || (fromDate ? date < fromDate : false)}
+              disabled={(date) =>
+                date < today || (fromDate ? date < fromDate : false)
+              }
             />
           </PopoverContent>
         </Popover>
 
         <div className="flex gap-2">
-          <Button type="button" onClick={() => apply({ from, to })} disabled={!canApply} className="w-full md:w-auto">
+          <Button type="button" onClick={() => apply({ from, to })} disabled={!canApply}>
             Sprawdź dostępność
           </Button>
 
-          <Button type="button" variant="outline" onClick={clearDates} className="w-full md:w-auto">
+          <Button type="button" variant="outline" onClick={clearDates}>
             Wyczyść
           </Button>
         </div>
@@ -207,9 +237,10 @@ export function OfertaFiltersBar({ initialFrom = '', initialTo = '', initialSort
           variant="outline"
           onClick={toggleSort}
           className="gap-2 min-w-[130px] justify-between"
-          aria-label="Sortuj po cenie"
         >
-          <span className="text-sm w-[70px]">{isPriceAsc ? 'Rosnąco' : isPriceDesc ? 'Malejąco' : 'Sortuj'}</span>
+          <span className="text-sm w-[70px]">
+            {isPriceAsc ? 'Rosnąco' : isPriceDesc ? 'Malejąco' : 'Sortuj'}
+          </span>
 
           <span className="flex items-center gap-1" aria-hidden="true">
             <ChevronUp className={isPriceAsc ? '' : 'opacity-40'} size={16} />

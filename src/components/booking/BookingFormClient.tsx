@@ -138,23 +138,29 @@ export function BookingFormClient(props: {
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema),
-    defaultValues: {
-      trailerId: defaultResourceId,
-      startDate: '',
-      endDate: '',
+   defaultValues: {
+    trailerId: defaultResourceId,
+    startDate: '',
+    endDate: '',
 
-      ilosc: 1,
+    ilosc: 1,
 
-      fullName: '',
-      email: '',
-      phone: '',
-      wantsInvoice: false,
-      nip: '',
-      notes: '',
-      disability: false,
-      acceptRegulamin: false,
-      acceptPolityka: false,
-    },
+    fullName: '',
+    email: '',
+    phone: '',
+
+    wantsInvoice: false,
+    invoiceType: undefined,
+    companyName: '',
+    companyAddress: '',
+    nip: '',
+
+    notes: '',
+    disability: false,
+    acceptRegulamin: false,
+    acceptPolityka: false,
+  },
+
     mode: 'onBlur',
   })
 
@@ -378,14 +384,23 @@ export function BookingFormClient(props: {
         })),
 
         klient: {
-          fullName: values.fullName,
-          email: values.email,
-          phone: values.phone,
-          wantsInvoice: Boolean(values.wantsInvoice),
-          nip: values.wantsInvoice ? (values.nip || undefined) : undefined,
-          notes: values.notes || undefined,
-          disability: Boolean(values.disability),
-        },
+        fullName: values.fullName,
+        email: values.email,
+        phone: values.phone,
+
+        wantsInvoice: Boolean(values.wantsInvoice),
+        invoiceType: values.wantsInvoice ? (values.invoiceType ?? undefined) : undefined,
+
+        companyName:
+          values.wantsInvoice && values.invoiceType === 'company' ? (values.companyName || undefined) : undefined,
+        companyAddress:
+          values.wantsInvoice && values.invoiceType === 'company' ? (values.companyAddress || undefined) : undefined,
+        nip: values.wantsInvoice && values.invoiceType === 'company' ? (values.nip || undefined) : undefined,
+
+        notes: values.notes || undefined,
+        disability: Boolean(values.disability),
+      },
+
       }
 
       const res = await fetch('/api/bookings', {
@@ -418,7 +433,11 @@ export function BookingFormClient(props: {
         email: '',
         phone: '',
         wantsInvoice: false,
+        invoiceType: undefined,
+        companyName: '',
+        companyAddress: '',
         nip: '',
+
         notes: '',
         disability: false,
         acceptRegulamin: false,

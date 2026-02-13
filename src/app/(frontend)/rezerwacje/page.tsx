@@ -102,7 +102,7 @@ export default async function RezerwacjePage() {
 
   return (
     <PageEnter>
-      <main className="container mx-auto px-4 py-8 md:px-0">{content}</main>
+      <section className="container mx-auto px-4 py-8 md:px-0">{content}</section>
     </PageEnter>
   )
 }

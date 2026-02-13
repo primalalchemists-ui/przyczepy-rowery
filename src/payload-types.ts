@@ -286,7 +286,21 @@ export interface Zasoby {
   specyfikacja?:
     | {
         label: string;
-        value: string;
+        value: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        };
         id?: string | null;
       }[]
     | null;
@@ -351,7 +365,13 @@ export interface Rezerwacje {
     phone: string;
     wantsInvoice?: boolean | null;
     /**
-     * Wymagany, jeśli zaznaczono „Faktura”.
+     * Wybierz typ faktury, jeśli zaznaczono „Faktura”.
+     */
+    invoiceType?: ('none' | 'personal' | 'company') | null;
+    companyName?: string | null;
+    companyAddress?: string | null;
+    /**
+     * Wymagany, jeśli faktura jest na firmę.
      */
     nip?: string | null;
     notes?: string | null;
@@ -684,6 +704,9 @@ export interface RezerwacjeSelect<T extends boolean = true> {
         email?: T;
         phone?: T;
         wantsInvoice?: T;
+        invoiceType?: T;
+        companyName?: T;
+        companyAddress?: T;
         nip?: T;
         notes?: T;
         disability?: T;
@@ -843,6 +866,14 @@ export interface UstawieniaRezerwacji {
   regulaminPdf?: (number | null) | Media;
   politykaPrywatnosciPdf?: (number | null) | Media;
   paymentProviderDefault: 'stripe' | 'p24';
+  faq?:
+    | {
+        question: string;
+        answer: string;
+        order?: number | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -889,6 +920,14 @@ export interface UstawieniaRezerwacjiSelect<T extends boolean = true> {
   regulaminPdf?: T;
   politykaPrywatnosciPdf?: T;
   paymentProviderDefault?: T;
+  faq?:
+    | T
+    | {
+        question?: T;
+        answer?: T;
+        order?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

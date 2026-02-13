@@ -1,6 +1,5 @@
 import { z } from 'zod'
 
-// prosta walidacja NIP (PL): 10 cyfr; checksum można dodać później
 function isValidNipFormat(v: string) {
   const s = (v ?? '').replace(/\D/g, '')
   return /^\d{10}$/.test(s)
@@ -12,7 +11,6 @@ export const bookingSchema = z
     startDate: z.string().min(1, 'Wybierz datę rozpoczęcia.'),
     endDate: z.string().min(1, 'Wybierz datę zakończenia.'),
 
-    // ✅ NOWE: ilość sztuk (dla e-bike w UI, dla przyczepy zawsze 1)
     ilosc: z.coerce.number().int().min(1).default(1),
 
     fullName: z.string().min(2, 'Podaj imię i nazwisko.'),
@@ -20,6 +18,12 @@ export const bookingSchema = z
     phone: z.string().min(6, 'Podaj poprawny numer telefonu.'),
 
     wantsInvoice: z.boolean().default(false),
+
+    // ✅ nowe
+    invoiceType: z.enum(['personal', 'company']).optional(), // wymagane tylko gdy wantsInvoice=true
+
+    companyName: z.string().optional(),
+    companyAddress: z.string().optional(),
     nip: z.string().optional(),
 
     notes: z.string().optional(),
@@ -33,22 +37,35 @@ export const bookingSchema = z
     }),
   })
   .superRefine((data, ctx) => {
-    if (data.wantsInvoice) {
+    if (!data.wantsInvoice) return
+
+    const invoiceType = data.invoiceType
+    if (!invoiceType) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['invoiceType'],
+        message: 'Wybierz typ faktury.',
+      })
+      return
+    }
+
+    if (invoiceType === 'company') {
+      const companyName = (data.companyName ?? '').trim()
+      const companyAddress = (data.companyAddress ?? '').trim()
       const nip = (data.nip ?? '').trim()
+
+      if (!companyName) {
+        ctx.addIssue({ code: 'custom', path: ['companyName'], message: 'Podaj nazwę firmy.' })
+      }
+      if (!companyAddress) {
+        ctx.addIssue({ code: 'custom', path: ['companyAddress'], message: 'Podaj adres siedziby.' })
+      }
       if (!nip) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['nip'],
-          message: 'Podaj NIP do faktury.',
-        })
+        ctx.addIssue({ code: 'custom', path: ['nip'], message: 'Podaj NIP.' })
         return
       }
       if (!isValidNipFormat(nip)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['nip'],
-          message: 'Podaj poprawny NIP (10 cyfr).',
-        })
+        ctx.addIssue({ code: 'custom', path: ['nip'], message: 'Podaj poprawny NIP (10 cyfr).' })
       }
     }
   })

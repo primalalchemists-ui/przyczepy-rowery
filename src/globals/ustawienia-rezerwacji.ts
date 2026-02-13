@@ -44,22 +44,22 @@ export const UstawieniaRezerwacji: GlobalConfig = {
   label: 'Ustawienia rezerwacji',
   admin: { group: 'Ustawienia' },
   hooks: {
-  afterChange: [
-    async () => {
-      await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/revalidate`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-revalidate-secret': process.env.REVALIDATE_SECRET!,
-        },
-        body: JSON.stringify({
-          tags: ['global:ustawienia-strony'], // albo rezerwacji
-        }),
-      })
-    },
-  ],
-},
-
+    afterChange: [
+      async () => {
+        await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/revalidate`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-revalidate-secret': process.env.REVALIDATE_SECRET!,
+          },
+          body: JSON.stringify({
+            // ✅ ważne: tag dla tego globala
+            tags: ['global:ustawienia-rezerwacji'],
+          }),
+        })
+      },
+    ],
+  },
   access: { read: () => true },
   fields: [
     {
@@ -176,6 +176,35 @@ export const UstawieniaRezerwacji: GlobalConfig = {
       options: [
         { label: 'Stripe', value: 'stripe' },
         { label: 'Przelewy24', value: 'p24' },
+      ],
+    },
+
+    // ✅ NOWE: FAQ dla rezerwacji (Global)
+    {
+      name: 'faq',
+      label: 'FAQ – Rezerwacja',
+      type: 'array',
+      minRows: 0,
+      fields: [
+        {
+          name: 'question',
+          label: 'Pytanie',
+          type: 'text',
+          required: true,
+        },
+        {
+          name: 'answer',
+          label: 'Odpowiedź',
+          type: 'textarea',
+          required: true,
+        },
+        {
+          name: 'order',
+          label: 'Kolejność',
+          type: 'number',
+          required: false,
+          admin: { step: 1 },
+        },
       ],
     },
   ],

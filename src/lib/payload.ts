@@ -89,13 +89,23 @@ export type BookingTypeSettings = {
   depositValue?: number | null
 }
 
+// src/lib/payload.ts
+
+export type FaqItem = {
+  question: string
+  answer: string
+  order?: number | null
+}
+
 export type BookingSettings = {
   dlaPrzyczep: BookingTypeSettings
   dlaRowerow: BookingTypeSettings
   regulaminPdf?: MediaDoc | number | string | null
   politykaPrywatnosciPdf?: MediaDoc | number | string | null
   paymentProviderDefault: 'stripe' | 'p24'
+  faq?: FaqItem[] | null
 }
+
 
 /**
  * Railway / prod:

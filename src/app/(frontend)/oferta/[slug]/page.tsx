@@ -3,10 +3,13 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { RichText } from '@payloadcms/richtext-lexical/react'
 import type { SerializedEditorState } from 'lexical'
+import { ResourceSpecAccordion } from '@/components/resources/ResourceSpecAccordion'
+
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ResourceTabsMotion } from '@/components/resources/ResourceTabsMotion'
+
 
 import { getResourceBySlug } from '@/lib/payload'
 import { formatPLN } from '@/lib/utils'
@@ -42,7 +45,7 @@ export default async function ResourceDetailPage(props: { params: Promise<{ slug
   const resourceId = toId(resource.id)
 
   return (
-    <main className="container mx-auto px-4 lg:px-0 py-8">
+    <section className="container mx-auto px-4 lg:px-0 py-8">
       <ResourceBreadcrumbs resourceName={resource.nazwa} />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
@@ -60,45 +63,26 @@ export default async function ResourceDetailPage(props: { params: Promise<{ slug
             altBase={resource.nazwa}
           />
 
-          <Tabs defaultValue="opis">
-            <TabsList aria-label="Sekcje zasobu">
-              <TabsTrigger value="opis">Opis</TabsTrigger>
-              <TabsTrigger value="spec">Specyfikacja</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="opis" className="mt-4">
-              <Card className="border-none shadow-none">
-                <CardContent className="text-muted-foreground p-4">
-                  {resource.opisDlugi ? (
-                    <RichText data={resource.opisDlugi as SerializedEditorState} />
-                  ) : (
-                    <p>Brak pełnego opisu.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="spec" className="mt-4">
-              {resource.specyfikacja?.length ? (
-                <Card>
-                  <CardContent className="p-6">
-                    <dl className="grid gap-3 text-sm">
-                      {resource.specyfikacja.map((row, idx) => (
-                        <div key={`${row.label}-${idx}`} className="flex items-start justify-between gap-4">
-                          <dt className="text-muted-foreground">{row.label}</dt>
-                          <dd className="font-medium text-right">{row.value}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </CardContent>
-                </Card>
+          <ResourceTabsMotion
+            defaultTab="opis"
+            opis={
+              resource.opisDlugi ? (
+                <div className="text-muted-foreground">
+                  <RichText data={resource.opisDlugi as SerializedEditorState} />
+                </div>
               ) : (
-                <Card>
-                  <CardContent className="p-6 text-sm text-muted-foreground">Brak specyfikacji.</CardContent>
-                </Card>
-              )}
-            </TabsContent>
-          </Tabs>
+                <p className="text-sm text-muted-foreground">Brak pełnego opisu.</p>
+              )
+            }
+            spec={
+              resource.specyfikacja?.length ? (
+                <ResourceSpecAccordion items={resource.specyfikacja} />
+              ) : (
+                <ResourceSpecAccordion items={null} />
+              )
+            }
+          />
+
         </section>
 
         <aside className="grid gap-4 lg:sticky lg:top-6 lg:self-start" aria-label="Panel rezerwacji">
@@ -155,6 +139,6 @@ export default async function ResourceDetailPage(props: { params: Promise<{ slug
           <AvailabilityCalendar resourceId={resourceId} title="Dostępność" />
         </aside>
       </div>
-    </main>
+    </section>
   )
 }

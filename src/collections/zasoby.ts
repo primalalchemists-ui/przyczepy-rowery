@@ -158,9 +158,17 @@ export const Zasoby: CollectionConfig = {
       required: false,
       fields: [
         { name: 'label', label: 'Etykieta', type: 'text', required: true },
-        { name: 'value', label: 'Wartość', type: 'text', required: true },
+
+        // ✅ Wartość z formatowaniem
+        {
+          name: 'value',
+          label: 'Wartość',
+          type: 'richText',
+          required: true,
+        },
       ],
     },
+
 
     // // ✅ Pola specyficzne per typ (tylko w adminie warunkowo)
     // {

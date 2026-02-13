@@ -4,6 +4,8 @@ import type { CollectionConfig, CollectionBeforeChangeHook, CollectionBeforeVali
 type BookingStatus = 'pending_payment' | 'deposit_paid' | 'paid' | 'confirmed' | 'cancelled'
 type ResourceType = 'przyczepa' | 'ebike'
 
+type InvoiceType = 'none' | 'personal' | 'company'
+
 const toDate = (v: unknown): Date | null => {
   if (!v) return null
   const d = v instanceof Date ? v : new Date(String(v))
@@ -43,7 +45,7 @@ const calcPayableNow = (total: number, settings: any) => {
   return Math.max(0, round2(total * (pct / 100)))
 }
 
-// ====== ✅ DOPISEK: helpery UTC do capacity-check ======
+// ====== ✅ helpery UTC do capacity-check ======
 const startOfDayUTC = (date: Date) =>
   new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
 
@@ -70,6 +72,14 @@ const overlaps = (startA: Date, endA: Date, startB: Date, endB: Date) =>
 
 type DayCounts = Map<string, number>
 const inc = (m: DayCounts, day: string, qty: number) => m.set(day, (m.get(day) ?? 0) + qty)
+
+const normInvoiceType = (v: unknown): InvoiceType => {
+  const s = String(v ?? '').trim()
+  if (s === 'personal' || s === 'company' || s === 'none') return s
+  return 'none'
+}
+
+const clean = (v: unknown) => String(v ?? '').trim()
 
 const beforeValidate: CollectionBeforeValidateHook = async ({ data }) => {
   const start = toDate((data as any)?.startDate)
@@ -137,13 +147,39 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
     throw new Error(`Minimalna liczba ${resourceType === 'ebike' ? 'dni' : 'nocy'}: ${minUnitsDefault}.`)
   }
 
-  // ====== DANE KLIENTA: FAKTURA + NIP ======
+  // ====== ✅ DANE KLIENTA: FAKTURA (NOWE) ======
   const klient = (data as any)?.klient ?? {}
-  const wantsInvoice = Boolean(klient?.wantsInvoice)
-  const nipRaw = typeof klient?.nip === 'string' ? klient.nip.trim() : ''
 
-  if (wantsInvoice && !nipRaw) throw new Error('Podaj NIP, jeśli zaznaczono fakturę.')
-  const nextNip = wantsInvoice ? nipRaw : undefined
+  // Zachowujemy wantsInvoice dla kompatybilności, ale source of truth = invoiceType
+  const wantsInvoice = Boolean(klient?.wantsInvoice)
+
+  const invoiceType: InvoiceType = (() => {
+    const fromData = normInvoiceType(klient?.invoiceType)
+    if (fromData !== 'none') return fromData
+    return wantsInvoice ? 'personal' : 'none'
+  })()
+
+  const companyName = clean(klient?.companyName)
+  const companyAddress = clean(klient?.companyAddress)
+  const nipRaw = clean(klient?.nip)
+
+  // Walidacja:
+  // - invoiceType=none => nic nie wymagamy
+  // - invoiceType=personal => nic nie wymagamy
+  // - invoiceType=company => wymagamy 3 pól
+  if (invoiceType === 'company') {
+    if (!companyName) throw new Error('Podaj nazwę firmy do faktury.')
+    if (!companyAddress) throw new Error('Podaj adres siedziby do faktury.')
+    if (!nipRaw) throw new Error('Podaj NIP do faktury.')
+  }
+
+  const nextInvoiceType = invoiceType
+  const nextWantsInvoice = invoiceType !== 'none'
+
+  // jeśli nie company → czyścimy pola firmy, żeby nie wisiały stare wartości
+  const nextCompanyName = invoiceType === 'company' ? companyName : undefined
+  const nextCompanyAddress = invoiceType === 'company' ? companyAddress : undefined
+  const nextNip = invoiceType === 'company' ? nipRaw : undefined
 
   // ====== STOCK CHECK (BASIC) ======
   const stock = Math.max(0, Number((zasob as any)?.iloscSztuk ?? 1))
@@ -154,16 +190,11 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
   const unitType = String((zasob as any)?.cena?.jednostka ?? 'noc') as 'noc' | 'dzien'
   const basePrice = Number((zasob as any)?.cena?.basePrice ?? 0)
 
-  // ✅ DOPISEK: returnDate jako Date (Payload date lubi Date/string — Date jest najczyściej)
   const returnDate = unitType === 'dzien' ? addDaysUTC(end, -1) : startOfDayUTC(end)
 
-  // ====== ✅ DOPISEK: CAPACITY CHECK PER DAY ======
-  // Zasady liczenia zakresu zajętości takie jak w Twoim availability.ts:
-  // - noc: blokujemy też dzień zwrotu => end + 1
-  // - dzien: endDate jest exclusive, więc nie dokładamy dnia po
+  // ====== CAPACITY CHECK PER DAY ======
   const shouldBlockReturnDay = unitType === 'noc'
   const endToCount = shouldBlockReturnDay ? addDaysUTC(end, 1) : end
-
   const requestedDays = expandDays(start, endToCount)
 
   const occupyingStatuses: BookingStatus[] = ['pending_payment', 'deposit_paid', 'paid', 'confirmed']
@@ -177,7 +208,6 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
     ],
   }
 
-  // update: nie licz samej rezerwacji
   const currentId = (originalDoc as any)?.id
   if (operation === 'update' && currentId) {
     whereBookings.and.push({ id: { not_equals: currentId } })
@@ -186,7 +216,6 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
   const bookedCountByDay = new Map<string, number>()
   const blockedCountByDay = new Map<string, number>()
 
-  // rezerwacje
   const bookingsRes = await req.payload.find({
     collection: 'rezerwacje',
     depth: 0,
@@ -201,8 +230,6 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
     if (!s || !e) continue
 
     const bQty = Math.max(1, Number(b?.ilosc ?? 1))
-
-    // liczymy tak samo jak zasób (spójnie z availability)
     const bEndToCount = shouldBlockReturnDay ? addDaysUTC(e, 1) : e
 
     if (!overlaps(s, bEndToCount, start, endToCount)) continue
@@ -210,7 +237,6 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
     for (const day of days) inc(bookedCountByDay, day, bQty)
   }
 
-  // blokady
   const blocksRes = await req.payload.find({
     collection: 'blokady',
     depth: 0,
@@ -246,7 +272,6 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
       throw new Error(`Brak dostępnej ilości w dniu ${day}. Dostępne: ${Math.max(0, left)} / ${stock}.`)
     }
   }
-  // ====== ✅ KONIEC DOPISKU capacity ======
 
   const seasonal = Array.isArray((zasob as any)?.cena?.seasonalPricing) ? ((zasob as any).cena.seasonalPricing as any[]) : []
 
@@ -403,12 +428,14 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
     zasob: zasobId,
     ilosc: qty,
 
-    // ✅ czytelny zwrot w adminie
     returnDate,
 
     klient: {
       ...klient,
-      wantsInvoice,
+      wantsInvoice: nextWantsInvoice, // kompatybilność
+      invoiceType: nextInvoiceType,   // nowe
+      companyName: nextCompanyName,
+      companyAddress: nextCompanyAddress,
       nip: nextNip,
     },
 
@@ -496,8 +523,6 @@ export const Rezerwacje: CollectionConfig = {
       index: true,
       admin: { date: { pickerAppearance: 'dayOnly' } },
     },
-
-    // ✅ NOWE: zwrot (czytelny dla człowieka)
     {
       name: 'returnDate',
       label: 'Zwrot (data)',
@@ -510,7 +535,6 @@ export const Rezerwacje: CollectionConfig = {
         description: 'Wyliczane automatycznie. Dla e-bike: endDate - 1.',
       },
     },
-
     {
       name: 'status',
       label: 'Status',
@@ -544,24 +568,76 @@ export const Rezerwacje: CollectionConfig = {
         { name: 'fullName', label: 'Imię i nazwisko', type: 'text', required: true },
         { name: 'email', label: 'E-mail', type: 'email', required: true },
         { name: 'phone', label: 'Telefon', type: 'text', required: true },
+
+        // ✅ zostaje (żeby UI/legacy nie padło)
         { name: 'wantsInvoice', label: 'Faktura', type: 'checkbox', required: false, defaultValue: false },
+
+        // ✅ nowe: typ faktury
+        {
+          name: 'invoiceType',
+          label: 'Typ faktury',
+          type: 'select',
+          required: false,
+          defaultValue: 'none',
+          options: [
+            { label: 'Brak', value: 'none' },
+            { label: 'Imienna', value: 'personal' },
+            { label: 'Na firmę', value: 'company' },
+          ],
+          admin: {
+            condition: (_, siblingData) => Boolean((siblingData as any)?.wantsInvoice),
+            description: 'Wybierz typ faktury, jeśli zaznaczono „Faktura”.',
+          },
+        },
+
+        // ✅ pola firmy (tylko invoiceType=company)
+        {
+          name: 'companyName',
+          label: 'Nazwa firmy',
+          type: 'text',
+          required: false,
+          admin: {
+            condition: (_, siblingData) => (siblingData as any)?.invoiceType === 'company',
+          },
+          validate: (value, { siblingData }) => {
+            if ((siblingData as any)?.invoiceType !== 'company') return true
+            const v = String(value ?? '').trim()
+            if (!v) return 'Podaj nazwę firmy.'
+            return true
+          },
+        },
+        {
+          name: 'companyAddress',
+          label: 'Adres siedziby',
+          type: 'text',
+          required: false,
+          admin: {
+            condition: (_, siblingData) => (siblingData as any)?.invoiceType === 'company',
+          },
+          validate: (value, { siblingData }) => {
+            if ((siblingData as any)?.invoiceType !== 'company') return true
+            const v = String(value ?? '').trim()
+            if (!v) return 'Podaj adres siedziby.'
+            return true
+          },
+        },
         {
           name: 'nip',
           label: 'NIP',
           type: 'text',
           required: false,
           admin: {
-            condition: (_, siblingData) => Boolean((siblingData as any)?.wantsInvoice),
-            description: 'Wymagany, jeśli zaznaczono „Faktura”.',
+            condition: (_, siblingData) => (siblingData as any)?.invoiceType === 'company',
+            description: 'Wymagany, jeśli faktura jest na firmę.',
           },
           validate: (value, { siblingData }) => {
-            const wants = Boolean((siblingData as any)?.wantsInvoice)
-            if (!wants) return true
+            if ((siblingData as any)?.invoiceType !== 'company') return true
             const v = String(value ?? '').trim()
-            if (!v) return 'Podaj NIP, jeśli chcesz fakturę.'
+            if (!v) return 'Podaj NIP.'
             return true
           },
         },
+
         { name: 'notes', label: 'Uwagi (opcjonalnie)', type: 'textarea', required: false },
         { name: 'disability', label: 'Niepełnosprawność', type: 'checkbox', required: false, defaultValue: false },
       ],

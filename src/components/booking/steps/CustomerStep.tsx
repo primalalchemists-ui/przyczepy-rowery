@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Label } from '@/components/ui/label'
+
 
 import type { BookingFormValues } from '@/lib/schemas/bookingSchema'
 import { calcPayableNow } from '@/lib/booking/payable'
@@ -137,13 +140,19 @@ export function CustomerStep(props: {
   })
 
   const wantsInvoice = props.form.watch('wantsInvoice')
+  const invoiceType = props.form.watch('invoiceType')
+
 
   useEffect(() => {
     if (!wantsInvoice) {
+      props.form.setValue('invoiceType', undefined, { shouldValidate: true, shouldDirty: true })
+      props.form.setValue('companyName', '', { shouldValidate: true, shouldDirty: true })
+      props.form.setValue('companyAddress', '', { shouldValidate: true, shouldDirty: true })
       props.form.setValue('nip', '', { shouldValidate: true, shouldDirty: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantsInvoice])
+
 
   const acceptRegErrId = 'acceptRegulamin-error'
   const acceptPolErrId = 'acceptPolityka-error'
@@ -204,7 +213,7 @@ export function CustomerStep(props: {
               />
             </div>
 
-            {/* ✅ Faktura + NIP */}
+          {/* ✅ Faktura */}
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-3 rounded-md border p-3">
                 <p className="text-sm font-medium" id="invoice-label">
@@ -220,15 +229,66 @@ export function CustomerStep(props: {
               </div>
 
               {wantsInvoice ? (
-                <FloatingInput
-                  id="nip"
-                  label="NIP (wymagany do faktury)"
-                  error={errors.nip?.message as any}
-                  inputProps={props.form.register('nip')}
-                  autoComplete="off"
-                />
+                <div className="grid gap-3 rounded-md border p-3">
+                  <div className="grid gap-2">
+                    <p className="text-sm font-medium">Typ faktury</p>
+
+                    <RadioGroup
+                      value={invoiceType ?? ''}
+                      onValueChange={(v) =>
+                        props.form.setValue('invoiceType', v as any, { shouldValidate: true, shouldDirty: true })
+                      }
+                      className="grid gap-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem id="invoice-personal" value="personal" />
+                        <Label htmlFor="invoice-personal" className="cursor-pointer">
+                          Faktura imienna
+                        </Label>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem id="invoice-company" value="company" />
+                        <Label htmlFor="invoice-company" className="cursor-pointer">
+                          Faktura na firmę
+                        </Label>
+                      </div>
+                    </RadioGroup>
+
+                    <FieldError id="invoiceType-error" msg={(errors as any).invoiceType?.message as any} />
+                  </div>
+
+                  {invoiceType === 'company' ? (
+                    <div className="grid gap-4">
+                      <FloatingInput
+                        id="companyName"
+                        label="Nazwa firmy (wymagana)"
+                        error={(errors as any).companyName?.message as any}
+                        inputProps={props.form.register('companyName')}
+                        autoComplete="organization"
+                      />
+
+                      <FloatingInput
+                        id="companyAddress"
+                        label="Adres siedziby (wymagany)"
+                        error={(errors as any).companyAddress?.message as any}
+                        inputProps={props.form.register('companyAddress')}
+                        autoComplete="street-address"
+                      />
+
+                      <FloatingInput
+                        id="nip"
+                        label="NIP (wymagany)"
+                        error={(errors as any).nip?.message as any}
+                        inputProps={props.form.register('nip')}
+                        autoComplete="off"
+                      />
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
             </div>
+
 
             {/* ✅ Regulamin + Polityka */}
             <div className="grid gap-2">
