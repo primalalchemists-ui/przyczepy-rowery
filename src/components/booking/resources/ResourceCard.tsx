@@ -10,7 +10,7 @@ import { MotionDiv, useMotionSafe } from '@/components/motion/MotionSafe'
 import { MotionImage } from '@/components/motion/MotionImage'
 
 function unitLabel(u?: string) {
-  if (u === 'dzien') return 'doba'
+  if (u === 'dzien') return 'dzień'
   return 'noc'
 }
 
