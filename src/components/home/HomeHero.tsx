@@ -51,7 +51,7 @@ export function HomeHero({ siteName }: Props) {
                   </h2>
 
                   <p className="mt-2 max-w-[44ch] text-sm text-foreground/70 md:text-base">
-                    Komfort i niezależność. Sprawdź terminy.
+                    Niezależność i wygoda.
                   </p>
 
                   <div className="mt-5">
@@ -95,7 +95,7 @@ export function HomeHero({ siteName }: Props) {
                   </h2>
 
                   <p className="mt-2 max-w-[48ch] text-sm text-foreground/70 md:text-base">
-                    Szybko i lekko. Zobacz dostępne modele.
+                    Szybkość i swoboda.
                   </p>
 
                   <div className="mt-5">

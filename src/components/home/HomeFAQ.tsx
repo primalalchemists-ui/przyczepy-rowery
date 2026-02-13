@@ -39,7 +39,7 @@ export function HomeFAQ({ items }: Props) {
 
   return (
     <section aria-labelledby="faq-heading">
-      <div className="relative overflow-hidden  bg-white/70  backdrop-blur">
+      <div className="relative overflow-hidden  bg-white/70  backdrop-blur -mt-10 ">
         {/* delikatne tło jak reszta strony */}
         <div aria-hidden="true" className="absolute inset-0">
           <div className="absolute -top-24 left-1/2 h-64 w-[40rem] -translate-x-1/2 rounded-full bg-[oklch(95%_0.03_152deg)] blur-3xl opacity-45" />
