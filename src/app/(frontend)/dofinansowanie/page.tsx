@@ -6,7 +6,7 @@ export default function DofinansowaniePage() {
       {/* Logo / flaga u góry */}
       <div className="relative h-24 w-full max-w-[520px]">
         <Image
-          src="/logo/Logotyp-unia.png"
+          src="/logo/logotyp-unia.png"
           alt="Fundusze Europejskie – NextGenerationEU"
           fill
           className="object-contain"
