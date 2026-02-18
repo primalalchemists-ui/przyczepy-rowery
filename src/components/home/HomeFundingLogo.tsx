@@ -14,7 +14,7 @@ export function HomeFundingLogo() {
       >
         <div className="relative w-full h-[120px] md:h-[160px]">
           <Image
-            src="/logo/Logotyp-unia.png"
+            src="/logo/logotyp-unia.png"
             alt="Logotyp Funduszy Europejskich i NextGenerationEU"
             fill
             priority
