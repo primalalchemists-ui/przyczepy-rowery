@@ -332,7 +332,7 @@ export function PriceSummary(props: {
         </Popover>
       </div>
 
-      <span className="font-semibold">666 zł</span>
+      <span className="font-semibold">4000 zł</span>
     </div>
     </CardContent>
   </Card>
