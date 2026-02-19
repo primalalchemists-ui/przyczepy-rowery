@@ -56,7 +56,12 @@ export async function POST(req: Request) {
       overrideAccess: true,
     })
 
-    return NextResponse.json({ ok: true, id: created.id })
+    return NextResponse.json({
+      ok: true,
+      id: created.id,
+      reservationNumber: (created as any).reservationNumber,
+    })
+
   } catch (e: any) {
     const msg = e?.message ?? 'Server error'
     const status = Number(e?.status ?? 500)

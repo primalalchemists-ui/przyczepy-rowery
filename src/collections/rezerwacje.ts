@@ -81,6 +81,40 @@ const normInvoiceType = (v: unknown): InvoiceType => {
 
 const clean = (v: unknown) => String(v ?? '').trim()
 
+function pad6(n: number) {
+  return String(n).padStart(6, '0')
+}
+
+function randomBase36(len: number) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let out = ''
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)]
+  return out
+}
+
+// Format: EA-2026-AB12CD (czytelne, krótkie, nie zdradza liczby rezerwacji)
+async function generateUniqueReservationNumber(req: any) {
+  const year = new Date().getFullYear()
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const code = randomBase36(6)
+    const candidate = `EA-${year}-${code}`
+
+    const exists = await req.payload.find({
+      collection: 'rezerwacje',
+      depth: 0,
+      limit: 1,
+      overrideAccess: true,
+      where: { reservationNumber: { equals: candidate } },
+    })
+
+    if (!exists?.docs?.length) return candidate
+  }
+
+  // ultra fallback (prawie niemożliwe, ale zawsze zwracamy coś)
+  return `EA-${year}-${randomBase36(10)}`
+}
+
+
 const beforeValidate: CollectionBeforeValidateHook = async ({ data }) => {
   const start = toDate((data as any)?.startDate)
   const end = toDate((data as any)?.endDate)
@@ -97,6 +131,11 @@ const beforeValidate: CollectionBeforeValidateHook = async ({ data }) => {
 
 const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, originalDoc }) => {
   const status = (((data as any)?.status as BookingStatus | undefined) ?? 'pending_payment') as BookingStatus
+
+    // ====== NUMER REZERWACJI (tylko create) ======
+  if (operation === 'create' && !(data as any)?.reservationNumber) {
+    ;(data as any).reservationNumber = await generateUniqueReservationNumber(req)
+  }
 
   // ====== DATY + ILOŚĆ ======
   const start = toDate((data as any)?.startDate)
@@ -465,8 +504,9 @@ export const Rezerwacje: CollectionConfig = {
   slug: 'rezerwacje',
   labels: { singular: 'Rezerwacja', plural: 'Rezerwacje' },
   admin: {
-    useAsTitle: 'id',
+    useAsTitle: 'reservationNumber',
     defaultColumns: [
+      'reservationNumber',
       'zasob',
       'ilosc',
       'startDate',
@@ -490,6 +530,19 @@ export const Rezerwacje: CollectionConfig = {
     beforeChange: [beforeChange],
   },
   fields: [
+    {
+      name: 'reservationNumber',
+      label: 'Numer rezerwacji',
+      type: 'text',
+      unique: true,
+      index: true,
+      required: false,
+      admin: {
+        readOnly: true,
+        description: 'Generowany automatycznie przy utworzeniu rezerwacji.',
+      },
+    },
+
     {
       name: 'zasob',
       label: 'Zasób',

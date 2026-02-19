@@ -6,6 +6,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 
 import type { BookingSettings, ResourceDoc, AddonDoc, ResourceType } from '@/lib/payload'
 import { bookingSchema, type BookingFormValues } from '@/lib/schemas/bookingSchema'
@@ -81,6 +83,14 @@ function pickBookingConfig(booking: BookingSettings, resourceType: ResourceType)
   }
 }
 
+const FALLBACK_SUCCESS_MESSAGE =
+  'Twoje zgłoszenie rezerwacji zostało przyjęte i czeka na potwierdzenie. Odezwiemy się w sprawie płatności zadatku i kaucji do 5 dni roboczych. Dostarczymy również dane potrzebne do odbioru. Płatność reszty odbywa się na miejscu odbioru.'
+
+type SubmitState =
+  | { status: 'idle' }
+  | { status: 'success'; message: string }
+  | { status: 'error'; message: string }
+
 export function BookingFormClient(props: {
   resources: ResourceDoc[]
   booking: BookingSettings
@@ -95,6 +105,7 @@ export function BookingFormClient(props: {
   const formAnchorRef = useRef<HTMLDivElement | null>(null)
 
   const [forceAvailKey, setForceAvailKey] = useState(0)
+  const [submitState, setSubmitState] = useState<SubmitState>({ status: 'idle' })
 
   const resourcesById = useMemo(() => {
     const m = new Map<string, ResourceDoc>()
@@ -138,29 +149,28 @@ export function BookingFormClient(props: {
 
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema),
-   defaultValues: {
-    trailerId: defaultResourceId,
-    startDate: '',
-    endDate: '',
+    defaultValues: {
+      trailerId: defaultResourceId,
+      startDate: '',
+      endDate: '',
 
-    ilosc: 1,
+      ilosc: 1,
 
-    fullName: '',
-    email: '',
-    phone: '',
+      fullName: '',
+      email: '',
+      phone: '',
 
-    wantsInvoice: false,
-    invoiceType: undefined,
-    companyName: '',
-    companyAddress: '',
-    nip: '',
+      wantsInvoice: false,
+      invoiceType: undefined,
+      companyName: '',
+      companyAddress: '',
+      nip: '',
 
-    notes: '',
-    disability: false,
-    acceptRegulamin: false,
-    acceptPolityka: false,
-  },
-
+      notes: '',
+      disability: false,
+      acceptRegulamin: false,
+      acceptPolityka: false,
+    },
     mode: 'onBlur',
   })
 
@@ -279,7 +289,7 @@ export function BookingFormClient(props: {
           if (typeof r === 'number') minRemaining = Math.min(minRemaining, r)
         }
 
-        const maxAllowed = Math.max(1, minRemaining) // u Ciebie i tak nie da się wybrać dnia z 0 (to byłby "booked")
+        const maxAllowed = Math.max(1, minRemaining)
         if (!alive) return
 
         setMaxQtyDynamic(maxAllowed)
@@ -325,30 +335,39 @@ export function BookingFormClient(props: {
       setSelectedExtras([])
       setShowClientForm(false)
       setAutoScroll(false)
+      setSubmitState({ status: 'idle' })
     }
   }, [resourceId, form])
 
   // reset po zmianie typu (ważne!)
- const prevTypeRef = useRef<ResourceType>('przyczepa')
+  const prevTypeRef = useRef<ResourceType>('przyczepa')
 
   useEffect(() => {
-  if (prevTypeRef.current === activeType) return
-  prevTypeRef.current = activeType
+    if (prevTypeRef.current === activeType) return
+    prevTypeRef.current = activeType
 
-  const nextId = defaultResourceId || (visibleResources[0] ? toId(visibleResources[0].id) : '')
-  form.setValue('trailerId', nextId, { shouldValidate: true })
+    const nextId = defaultResourceId || (visibleResources[0] ? toId(visibleResources[0].id) : '')
+    form.setValue('trailerId', nextId, { shouldValidate: true })
 
-  form.setValue('startDate', '', { shouldValidate: true, shouldDirty: true })
-  form.setValue('endDate', '', { shouldValidate: true, shouldDirty: true })
-  form.setValue('ilosc', 1, { shouldValidate: true, shouldDirty: true })
+    form.setValue('startDate', '', { shouldValidate: true, shouldDirty: true })
+    form.setValue('endDate', '', { shouldValidate: true, shouldDirty: true })
+    form.setValue('ilosc', 1, { shouldValidate: true, shouldDirty: true })
 
-  setSelectedExtras([])
-  setShowClientForm(false)
-  setAutoScroll(false)
+    setSelectedExtras([])
+    setShowClientForm(false)
+    setAutoScroll(false)
+    setSubmitState({ status: 'idle' })
   }, [activeType, visibleResources, defaultResourceId, form])
 
+  function openClientForm() {
+    if (!canProceed) return
+    setShowClientForm(true)
+    setAutoScroll(true)
+  }
 
   async function onSubmit(values: BookingFormValues) {
+    setSubmitState({ status: 'idle' })
+
     startTransition(async () => {
       const unitType = String((selectedResource as any)?.cena?.jednostka ?? 'noc') as 'noc' | 'dzien'
 
@@ -384,23 +403,22 @@ export function BookingFormClient(props: {
         })),
 
         klient: {
-        fullName: values.fullName,
-        email: values.email,
-        phone: values.phone,
+          fullName: values.fullName,
+          email: values.email,
+          phone: values.phone,
 
-        wantsInvoice: Boolean(values.wantsInvoice),
-        invoiceType: values.wantsInvoice ? (values.invoiceType ?? undefined) : undefined,
+          wantsInvoice: Boolean(values.wantsInvoice),
+          invoiceType: values.wantsInvoice ? (values.invoiceType ?? undefined) : undefined,
 
-        companyName:
-          values.wantsInvoice && values.invoiceType === 'company' ? (values.companyName || undefined) : undefined,
-        companyAddress:
-          values.wantsInvoice && values.invoiceType === 'company' ? (values.companyAddress || undefined) : undefined,
-        nip: values.wantsInvoice && values.invoiceType === 'company' ? (values.nip || undefined) : undefined,
+          companyName:
+            values.wantsInvoice && values.invoiceType === 'company' ? (values.companyName || undefined) : undefined,
+          companyAddress:
+            values.wantsInvoice && values.invoiceType === 'company' ? (values.companyAddress || undefined) : undefined,
+          nip: values.wantsInvoice && values.invoiceType === 'company' ? (values.nip || undefined) : undefined,
 
-        notes: values.notes || undefined,
-        disability: Boolean(values.disability),
-      },
-
+          notes: values.notes || undefined,
+          disability: Boolean(values.disability),
+        },
       }
 
       const res = await fetch('/api/bookings', {
@@ -411,19 +429,72 @@ export function BookingFormClient(props: {
 
       if (!res.ok) {
         const txt = await res.text().catch(() => '')
-        alert(`Nie udało się zapisać rezerwacji: ${res.status}\n${txt}`)
+        setSubmitState({
+          status: 'error',
+          message:
+            `Nie udało się zapisać rezerwacji. Spróbuj ponownie lub skontaktuj się z nami.` +
+            (txt ? ` (${res.status})` : ''),
+        })
         return
       }
 
-      alert('Rezerwacja została zapisana ✅')
+      // ✅ ODCZYT NUMERU REZERWACJI (z /api/bookings)
+      const createdJson = await res.json().catch(() => null)
+      const reservationNumber = createdJson?.reservationNumber as string | undefined
+
+      // label dodatków do maila
+      const extrasLabel = selectedExtras
+        .map((e) => {
+          const addon = availableAddons.find((a) => String(toId(a.id)) === String(e.addonId))
+          const name = (addon as any)?.name || (addon as any)?.nazwa || 'Dodatek'
+          const q = Math.max(1, Number(e.quantity ?? 1))
+          return q > 1 ? `${name} x${q}` : name
+        })
+        .join(', ')
+
+      // mail (Resend) – UI nie blokuje się gdy padnie
+      const mailRes = await fetch('/api/reservations', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          fullName: values.fullName,
+          email: values.email,
+          phone: values.phone,
+
+          resourceName: (selectedResource as any)?.nazwa ?? (selectedResource as any)?.name ?? 'Zasób',
+          resourceSlug: (selectedResource as any)?.slug ?? '',
+          resourceType: resourceType === 'ebike' ? 'ebike' : 'przyczepa',
+
+          startDate: values.startDate,
+          endDate: safeEndDate,
+          ilosc: qty,
+
+          reservationNumber,
+
+          extrasLabel: extrasLabel || undefined,
+          notes: values.notes || undefined,
+        }),
+      })
+
+      if (mailRes.ok) {
+        const json = await mailRes.json().catch(() => null)
+        const baseMsg = json?.message || FALLBACK_SUCCESS_MESSAGE
+        const msgWithNumber = reservationNumber ? `${baseMsg}\n\nNumer rezerwacji: ${reservationNumber}` : baseMsg
+        setSubmitState({ status: 'success', message: msgWithNumber })
+      } else {
+        const baseMsg = FALLBACK_SUCCESS_MESSAGE + ' (Potwierdzenie e-mail może dotrzeć z opóźnieniem.)'
+        const msgWithNumber = reservationNumber ? `${baseMsg}\n\nNumer rezerwacji: ${reservationNumber}` : baseMsg
+        setSubmitState({ status: 'success', message: msgWithNumber })
+      }
 
       setForceAvailKey((x) => x + 1)
       router.refresh()
 
-      const nextDefault = defaultResourceId
+      // ✅ KLUCZ: zachowaj trailerId, żeby efekt "zmiana zasobu" nie wyczyścił submitState
+      const keepResourceId = form.getValues('trailerId')
 
       form.reset({
-        trailerId: nextDefault,
+        trailerId: keepResourceId,
         startDate: '',
         endDate: '',
 
@@ -432,6 +503,7 @@ export function BookingFormClient(props: {
         fullName: '',
         email: '',
         phone: '',
+
         wantsInvoice: false,
         invoiceType: undefined,
         companyName: '',
@@ -447,13 +519,10 @@ export function BookingFormClient(props: {
       setSelectedExtras([])
       setShowClientForm(false)
       setAutoScroll(false)
-    })
-  }
 
-  function openClientForm() {
-    if (!canProceed) return
-    setShowClientForm(true)
-    setAutoScroll(true)
+      // przewiń do góry żeby user zobaczył komunikat
+      formAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 
   const typeDisabled =
@@ -491,7 +560,10 @@ export function BookingFormClient(props: {
         <section className="grid gap-4" aria-label="Wybór typu zasobu">
           <ResourceTypeToggle
             value={activeType}
-            onChange={setActiveType}
+            onChange={(v) => {
+              setActiveType(v)
+              setSubmitState({ status: 'idle' })
+            }}
             disabledPrzyczepa={!enabledTrailers}
             disabledEbike={!enabledEbikes}
           />
@@ -501,7 +573,10 @@ export function BookingFormClient(props: {
           <ResourceCarousel
             resources={visibleResources}
             selectedId={resourceId}
-            onSelect={(id) => form.setValue('trailerId', id, { shouldValidate: true })}
+            onSelect={(id) => {
+              form.setValue('trailerId', id, { shouldValidate: true })
+              setSubmitState({ status: 'idle' })
+            }}
           />
 
           <BookingStep
@@ -519,11 +594,45 @@ export function BookingFormClient(props: {
             onDatesChange={(v) => {
               form.setValue('startDate', v.startDate, { shouldValidate: true })
               form.setValue('endDate', v.endDate, { shouldValidate: true })
+              setSubmitState({ status: 'idle' })
             }}
             onProceed={openClientForm}
             minUnitsDefault={effective.minUnits}
             forceAvailKey={forceAvailKey}
           />
+
+          <div ref={formAnchorRef} />
+
+          {submitState.status !== 'idle' ? (
+            <Alert
+              className={
+                submitState.status === 'success'
+                  ? 'border-emerald-200 bg-emerald-50'
+                  : 'border-red-200 bg-red-50'
+              }
+              role="status"
+              aria-live="polite"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="grid gap-1">
+                  <AlertTitle className="font-semibold">
+                    {submitState.status === 'success' ? 'Zgłoszenie przyjęte' : 'Wystąpił problem'}
+                  </AlertTitle>
+                  <AlertDescription className="text-sm">{submitState.message}</AlertDescription>
+                </div>
+
+                <div className="shrink-0">
+                  <Button
+                    type="button"
+                    variant={submitState.status === 'success' ? 'default' : 'outline'}
+                    onClick={() => setSubmitState({ status: 'idle' })}
+                  >
+                    Zapoznałem(-am) się
+                  </Button>
+                </div>
+              </div>
+            </Alert>
+          ) : null}
         </section>
 
         {showClientForm ? (
@@ -545,6 +654,7 @@ export function BookingFormClient(props: {
       <aside className="grid min-w-0 gap-6 lg:sticky lg:top-6 lg:self-start">
         {selectedResource ? (
           <PriceSummary
+            resourceType={resourceType === 'ebike' ? 'ebike' : 'przyczepa'}
             quantity={resourceType === 'ebike' ? Math.max(1, Number(form.watch('ilosc') ?? 1)) : 1}
             unitType={String((selectedResource as any)?.cena?.jednostka ?? 'noc') as 'noc' | 'dzien'}
             basePrice={Number((selectedResource as any)?.cena?.basePrice ?? 0)}

@@ -4,6 +4,13 @@ import { OfertaFiltersBar } from '@/components/OfertaFiltersBar'
 import { parseISODateOnly } from '@/lib/availability'
 import { OfertaResultsClient } from '@/components/oferta/OfertaResultsClient'
 
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Oferta',
+}
+
+
 type SearchParams = {
   from?: string
   to?: string

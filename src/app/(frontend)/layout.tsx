@@ -2,11 +2,13 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 // src/app/(frontend)/layout.tsx
+import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { Lato } from 'next/font/google'
 import { getSiteSettings, getBookingSettings } from '@/lib/payload'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
+import Script from "next/script";
 import './globals.css'
 
 const lato = Lato({
@@ -15,6 +17,26 @@ const lato = Lato({
   display: 'swap',
   variable: '--font-lato',
 })
+
+
+
+export const metadata: Metadata = {
+  title: {
+    default: 'Rezerwacje przyczep i rowerów | Easy Apartments',
+    template: '%s | Easy Apartments',
+  },
+  description:
+    'Rezerwacje przyczep kempingowych oraz rowerów. Sprawdź dostępność i zarezerwuj termin.',
+}
+
+// const AccessibilityPanelScript = (
+//   <Script
+//     id="wcag-dock"
+//     strategy="afterInteractive"
+//     src="//wcag.dock.codes/accessibility/2fjsAgafdGljbsDdjFqS/start.js"
+//   />
+// );
+
 
 export default async function FrontendLayout({ children }: { children: ReactNode }) {
   const site = await getSiteSettings()

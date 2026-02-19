@@ -5,6 +5,13 @@ import { listActiveResources, getBookingSettings, resolveMediaUrl } from '@/lib/
 import { BookingFormClient } from '@/components/booking/BookingFormClient'
 import { Card, CardContent } from '@/components/ui/card'
 
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Rezerwacje',
+}
+
+
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 

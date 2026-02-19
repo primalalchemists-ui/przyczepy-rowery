@@ -9,6 +9,13 @@ import { HomeCTA } from 'src/components/home/HomeCTA'
 import { HomeFAQ } from 'src/components/home/HomeFAQ'
 import { HomeFundingLogo } from 'src/components/home/HomeFundingLogo'
 
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Strona główna',
+}
+
+
 export default async function HomePage() {
   const site = await getSiteSettings()
   const booking = await getBookingSettings()

@@ -2,6 +2,12 @@ import Link from 'next/link'
 import React from 'react'
 
 import { Button } from '@/components/ui/button'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Nie znaleziono strony (404)',
+}
+
 
 export default function NotFound() {
   return (

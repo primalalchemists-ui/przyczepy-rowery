@@ -137,6 +137,7 @@ function buildSegments(params: {
 }
 
 export function PriceSummary(props: {
+  resourceType: 'przyczepa' | 'ebike'
   unitType: 'noc' | 'dzien'
   basePrice: number
   seasonalPricing?: SeasonalRow[]
@@ -162,6 +163,8 @@ export function PriceSummary(props: {
   const units = diffUnitsUTC(props.startDate, props.endDate)
 
   const qty = Math.max(1, Number(props.quantity ?? 1))
+  const kaucja = props.resourceType === 'ebike' ? 1000 : 4000
+
 
   const pricing = useMemo(() => {
     return buildSegments({
@@ -332,7 +335,8 @@ export function PriceSummary(props: {
         </Popover>
       </div>
 
-      <span className="font-semibold">4000 zł</span>
+      <span className="font-semibold">{formatPLN(kaucja)}</span>
+
     </div>
     </CardContent>
   </Card>

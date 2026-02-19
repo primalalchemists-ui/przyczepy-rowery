@@ -340,6 +340,10 @@ export interface Zasoby {
  */
 export interface Rezerwacje {
   id: number;
+  /**
+   * Generowany automatycznie przy utworzeniu rezerwacji.
+   */
+  reservationNumber?: string | null;
   zasob: number | Zasoby;
   /**
    * Ile sztuk zasobu jest rezerwowanych (np. 2 rowery). Dla przyczepy zwykle 1.
@@ -684,6 +688,7 @@ export interface ZasobySelect<T extends boolean = true> {
  * via the `definition` "rezerwacje_select".
  */
 export interface RezerwacjeSelect<T extends boolean = true> {
+  reservationNumber?: T;
   zasob?: T;
   ilosc?: T;
   startDate?: T;

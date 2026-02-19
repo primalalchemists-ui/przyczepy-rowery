@@ -1,5 +1,12 @@
 import Image from 'next/image'
 
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Dofinansowanie',
+}
+
+
 export default function DofinansowaniePage() {
   return (
     <section className="mx-auto max-w-[1400px] px-4 py-8 space-y-10">

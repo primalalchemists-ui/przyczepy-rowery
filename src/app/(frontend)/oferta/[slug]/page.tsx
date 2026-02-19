@@ -1,4 +1,5 @@
 // src/app/(frontend)/oferta/[slug]/page.tsx
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { RichText } from '@payloadcms/richtext-lexical/react'
@@ -30,6 +31,45 @@ function fmtDayMonth(iso: string) {
 }
 
 export const revalidate = 60
+
+
+
+export async function generateMetadata(
+  props: { params: Promise<{ slug: string }> }
+): Promise<Metadata> {
+  const { slug } = await props.params
+  const decodedSlug = decodeURIComponent(slug)
+
+  const resource = await getResourceBySlug(decodedSlug)
+
+  // Jeśli nie ma zasobu albo jest nieaktywny – tytuł awaryjny
+  if (!resource || !resource.active) {
+    return {
+      title: 'Oferta',
+      description: 'Oferta – przyczepy i rowery.',
+    }
+  }
+
+  const title = resource.nazwa
+  const short = (resource.opisKrotki ?? '').trim()
+  const canonical = `/oferta/${encodeURIComponent(resource.slug)}`
+
+  return {
+    title,
+    description: short || `Szczegóły oferty: ${title}. Sprawdź dostępność i zarezerwuj termin.`,
+    alternates: {
+      canonical,
+    },
+    openGraph: {
+      title,
+      description: short || `Szczegóły oferty: ${title}.`,
+      type: 'article',
+      url: canonical,
+    },
+  }
+}
+
+
 
 export default async function ResourceDetailPage(props: { params: Promise<{ slug: string }> }) {
   const { slug } = await props.params
