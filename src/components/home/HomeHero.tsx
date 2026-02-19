@@ -65,7 +65,7 @@ export function HomeHero({ siteName }: Props) {
                 <div className="relative order-1 md:order-2">
                   <HeroArt
                     side="right"
-                    src="/images/hero-camper.png"
+                    src="/images/hero-przyczepa.png"
                     alt=""
                     className={['w-[320px] mx-auto', 'md:w-[420px] md:ml-auto md:mr-0'].join(' ')}
                   />
