@@ -1,24 +1,20 @@
-// src/app/api/reservations/route.ts
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 type ReservationMailPayload = {
   fullName: string
   email: string
   phone: string
-
   resourceName: string
   resourceSlug: string
   resourceType: 'przyczepa' | 'ebike'
-
   startDate: string
   endDate: string
   ilosc: number
-
   reservationNumber?: string
-
   extrasLabel?: string
   notes?: string
 }
@@ -34,6 +30,14 @@ function isTruthy(v: string | undefined) {
 }
 
 export async function POST(req: Request) {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    console.error('RESEND_API_KEY missing at runtime')
+    return NextResponse.json({ ok: false, error: 'SERVER_CONFIG', message: UI_MESSAGE }, { status: 500 })
+  }
+
+  const resend = new Resend(apiKey)
+
   let data: ReservationMailPayload
   try {
     data = await req.json()
@@ -89,7 +93,6 @@ export async function POST(req: Request) {
     `W razie braku odpowiedzi, napisz do nas na rezerwacje@easyapartments.pl i podaj numer rezerwacji.\n\n` +
     `Pozdrawiamy\nEasy Apartments`
 
-  // resend.dev restriction helper
   const testMode = isTruthy(process.env.RESEND_TEST_MODE)
   const testTo = process.env.RESEND_TEST_TO || ''
   const customerTo = testMode && testTo ? testTo : data.email
