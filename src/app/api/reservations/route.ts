@@ -8,15 +8,23 @@ type ReservationMailPayload = {
   fullName: string
   email: string
   phone: string
+
   resourceName: string
   resourceSlug: string
   resourceType: 'przyczepa' | 'ebike'
+
   startDate: string
   endDate: string
   ilosc: number
+
   reservationNumber?: string
   extrasLabel?: string
   notes?: string
+
+  // ✅ delivery (dla przyczepy)
+  deliveryAddress?: string
+  deliveryDetails?: string
+  deliveryGps?: string
 }
 
 const UI_MESSAGE =
@@ -66,6 +74,26 @@ export async function POST(req: Request) {
   const ilosc = Math.max(1, Number(data.ilosc))
   const rn = String(data.reservationNumber ?? '').trim()
 
+  const deliveryAddress = String(data.deliveryAddress ?? '').trim()
+  const deliveryDetails = String(data.deliveryDetails ?? '').trim()
+  const deliveryGps = String(data.deliveryGps ?? '').trim()
+
+  // ✅ adres wymagany tylko dla przyczepy
+  if (data.resourceType === 'przyczepa' && !deliveryAddress) {
+    return NextResponse.json(
+      { ok: false, error: 'MISSING_DELIVERY_ADDRESS', message: UI_MESSAGE },
+      { status: 400 },
+    )
+  }
+
+  const deliveryBlock =
+    data.resourceType === 'przyczepa'
+      ? `\nDostawa / podstawienie:\n` +
+        `Adres: ${deliveryAddress || '-'}\n` +
+        `Szczegóły: ${deliveryDetails || '-'}\n` +
+        `GPS / link: ${deliveryGps || '-'}\n`
+      : ''
+
   const adminText =
     `NOWA REZERWACJA (ZGŁOSZENIE)\n\n` +
     (rn ? `Numer rezerwacji: ${rn}\n\n` : '') +
@@ -76,7 +104,8 @@ export async function POST(req: Request) {
     `Typ: ${data.resourceType}\n` +
     `Termin: ${data.startDate} → ${data.endDate}\n` +
     `Ilość: ${ilosc}\n` +
-    `Dodatki: ${data.extrasLabel || '-'}\n` +
+    deliveryBlock +
+    `\nDodatki: ${data.extrasLabel || '-'}\n` +
     `Uwagi: ${data.notes || '-'}\n\n` +
     `Link: /oferta/${data.resourceSlug}\n\n` +
     `---\n${UI_MESSAGE}\n`
@@ -88,6 +117,11 @@ export async function POST(req: Request) {
     `• Zasób: ${data.resourceName}\n` +
     `• Termin: ${data.startDate} → ${data.endDate}\n` +
     `• Ilość: ${ilosc}\n` +
+    (data.resourceType === 'przyczepa'
+      ? `• Adres podstawienia: ${deliveryAddress || '-'}\n` +
+        (deliveryDetails ? `• Szczegóły: ${deliveryDetails}\n` : '') +
+        (deliveryGps ? `• GPS / link: ${deliveryGps}\n` : '')
+      : '') +
     (data.extrasLabel ? `• Dodatki: ${data.extrasLabel}\n` : '') +
     `\n${UI_MESSAGE}\n\n` +
     `W razie braku odpowiedzi, napisz do nas na rezerwacje@easyapartments.pl i podaj numer rezerwacji.\n\n` +

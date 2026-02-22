@@ -13,14 +13,21 @@ export const bookingSchema = z
 
     ilosc: z.coerce.number().int().min(1).default(1),
 
+    // ✅ NOWE: typ zasobu, żeby Zod mógł wymagać adresu tylko dla przyczepy
+    resourceType: z.enum(['przyczepa', 'ebike']),
+
     fullName: z.string().min(2, 'Podaj imię i nazwisko.'),
     email: z.string().email('Podaj poprawny e-mail.'),
     phone: z.string().min(6, 'Podaj poprawny numer telefonu.'),
 
+    // ✅ NOWE: adres podstawienia (dla przyczepy)
+    deliveryAddress: z.string().optional(),
+    deliveryDetails: z.string().optional(),
+    deliveryGps: z.string().optional(),
+
     wantsInvoice: z.boolean().default(false),
 
-    // ✅ nowe
-    invoiceType: z.enum(['personal', 'company']).optional(), // wymagane tylko gdy wantsInvoice=true
+    invoiceType: z.enum(['personal', 'company']).optional(),
 
     companyName: z.string().optional(),
     companyAddress: z.string().optional(),
@@ -37,6 +44,19 @@ export const bookingSchema = z
     }),
   })
   .superRefine((data, ctx) => {
+    // ✅ adres wymagany tylko dla przyczepy
+    if (data.resourceType === 'przyczepa') {
+      const addr = (data.deliveryAddress ?? '').trim()
+      if (!addr) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['deliveryAddress'],
+          message: 'Podaj adres podstawienia przyczepy.',
+        })
+      }
+    }
+
+    // faktura jak miałeś
     if (!data.wantsInvoice) return
 
     const invoiceType = data.invoiceType
@@ -54,12 +74,8 @@ export const bookingSchema = z
       const companyAddress = (data.companyAddress ?? '').trim()
       const nip = (data.nip ?? '').trim()
 
-      if (!companyName) {
-        ctx.addIssue({ code: 'custom', path: ['companyName'], message: 'Podaj nazwę firmy.' })
-      }
-      if (!companyAddress) {
-        ctx.addIssue({ code: 'custom', path: ['companyAddress'], message: 'Podaj adres siedziby.' })
-      }
+      if (!companyName) ctx.addIssue({ code: 'custom', path: ['companyName'], message: 'Podaj nazwę firmy.' })
+      if (!companyAddress) ctx.addIssue({ code: 'custom', path: ['companyAddress'], message: 'Podaj adres siedziby.' })
       if (!nip) {
         ctx.addIssue({ code: 'custom', path: ['nip'], message: 'Podaj NIP.' })
         return

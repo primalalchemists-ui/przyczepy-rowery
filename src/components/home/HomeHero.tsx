@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { HeroArt } from './HeroArtClient'
+import { HeroArt, HeroCarouselArt } from './HeroArtClient'
 
 type Props = {
   siteName: string
@@ -14,7 +14,6 @@ export function HomeHero({ siteName }: Props) {
         'relative overflow-hidden',
         'w-screen left-1/2 -translate-x-1/2',
         'md:w-full md:left-auto md:translate-x-0',
-        // ✅ wchodzimy pod navbar (używa --header-h z SiteHeader)
         '-mt-[var(--header-h)] pt-[var(--header-h)]',
       ].join(' ')}
     >
@@ -27,7 +26,6 @@ export function HomeHero({ siteName }: Props) {
 
       <div className="relative mx-auto max-w-[1400px] px-4 pb-8 md:px-6">
         <div className="min-h-[calc(100svh-var(--header-h))] py-10 md:py-12 flex flex-col justify-center">
-          {/* ✅ wycentrowany tekst */}
           <header className="mx-auto max-w-3xl text-center">
             <h1
               id="hero-heading"
@@ -39,19 +37,39 @@ export function HomeHero({ siteName }: Props) {
           </header>
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:mt-8 md:gap-6">
-            {/* CARD 1 — Camper: tekst LEWO, obraz PRAWO */}
+            {/* CARD 1 — Camper */}
             <div className="relative overflow-hidden rounded-2xl border bg-white/70 shadow-sm backdrop-blur">
-              <div className="relative z-10 grid items-center gap-4 p-5 md:grid-cols-2 md:p-6 min-h-[260px] md:min-h-[320px]">
-                {/* LEWO: tekst */}
-                <div className="order-2 md:order-1 lg:ml-20">
+              {/* MOBILE */}
+              <div className="md:hidden">
+                <div className="relative overflow-hidden rounded-t-2xl">
+                  <HeroCarouselArt
+                    side="right"
+                    images={[
+                      '/images/hero-1.jpg',
+                      '/images/hero-2.jpg',
+                      '/images/hero-3.jpg',
+                      '/images/hero-4.jpg',
+                      '/images/hero-5.jpg',
+                      '/images/hero-6.jpg',
+                    ]}
+                    alt=""
+                    intervalMs={2000}
+                    fit="cover"
+                    withBg
+                    heightClassName="h-[220px]"
+                    className="w-full"
+                  />
+                </div>
+
+                <div className="p-5">
                   <p className="text-xs font-medium tracking-wide text-foreground/60">Przyczepy kempingowe</p>
 
-                  <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight md:text-4xl">
-                    Rodzinny wyjazd?
+                  <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight">
+                    Mobilne Zakwaterowanie
                   </h2>
 
-                  <p className="mt-2 max-w-[44ch] text-sm text-foreground/70 md:text-base">
-                    Niezależność i wygoda.
+                  <p className="mt-2 max-w-[44ch] text-sm text-foreground/70">
+                    Dostarczymy przyczepe w wybrane miejsce w Polsce.
                   </p>
 
                   <div className="mt-5">
@@ -60,28 +78,73 @@ export function HomeHero({ siteName }: Props) {
                     </Button>
                   </div>
                 </div>
+              </div>
 
-                {/* PRAWO: obraz */}
-                <div className="relative order-1 md:order-2">
-                  <HeroArt
-                    side="right"
-                    src="/images/hero-przyczepa.png"
-                    alt=""
-                    className={['w-[320px] mx-auto', 'md:w-[420px] md:ml-auto md:mr-0'].join(' ')}
-                  />
+              {/* DESKTOP */}
+              <div className="hidden md:block">
+                <div className="relative z-10 grid items-center gap-4 p-6 md:grid-cols-2 min-h-[320px]">
+                  <div className="order-1 lg:ml-20">
+                    <p className="text-xs font-medium tracking-wide text-foreground/60">Przyczepy kempingowe</p>
+
+                    <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight md:text-4xl">
+                      Mobilne Zakwaterowanie
+                    </h2>
+
+                    <p className="mt-2 max-w-[44ch] text-sm text-foreground/70 md:text-base">
+                      Dostarczymy przyczepe w wybrane miejsce w Polsce.
+                    </p>
+
+                    <div className="mt-5">
+                      <Button asChild className="min-h-[44px] px-6">
+                        <Link href="/oferta?type=przyczepa">Zobacz ofertę</Link>
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* PRAWO: pane dociśnięty do ramki */}
+                  <div className="relative order-2 -my-6 -mr-6 pl-6">
+                    <div className="overflow-hidden rounded-r-2xl shadow-xl">
+                      <HeroCarouselArt
+                        side="right"
+                        images={[
+                          '/images/hero-1.jpg',
+                          '/images/hero-2.jpg',
+                          '/images/hero-3.jpg',
+                          '/images/hero-4.jpg',
+                          '/images/hero-5.jpg',
+                          '/images/hero-6.jpg',
+                        ]}
+                        alt=""
+                        intervalMs={2000}
+                        fit="cover"
+                        withBg
+                        heightClassName="h-[320px]"
+                        className="w-[560px] ml-auto"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* CARD 2 — E-bike: obraz LEWO, tekst PRAWO */}
+            {/* CARD 2 — E-bike (jak było, tylko zmienia obraz) */}
             <div className="relative overflow-hidden rounded-2xl border bg-white/70 shadow-sm backdrop-blur">
               <div className="relative z-10 grid items-center gap-4 p-5 md:grid-cols-2 md:p-6 min-h-[260px] md:min-h-[320px]">
-                {/* LEWO: obraz */}
+                {/* LEWO: e-bike jako "obiekt" (contain, bez tła) */}
                 <div className="relative order-1">
-                  <HeroArt
+                  <HeroCarouselArt
                     side="left"
-                    src="/images/e-bike-black--left.png"
+                    images={[
+                      '/images/e-bike-1.png',
+                      '/images/e-bike-2.png',
+                      '/images/e-bike-3.webp',
+                      '/images/e-bike-4.png',
+                    ]}
                     alt=""
+                    intervalMs={2000}
+                    fit="contain"
+                    withBg={false}
+                    heightClassName="h-[220px] md:h-[260px]"
                     className={['w-[340px] mx-auto', 'md:w-[420px] md:ml-0 md:mr-auto'].join(' ')}
                   />
                 </div>
@@ -91,11 +154,11 @@ export function HomeHero({ siteName }: Props) {
                   <p className="text-xs font-medium tracking-wide text-foreground/60">Rowery elektryczne</p>
 
                   <h2 className="mt-2 text-balance text-3xl font-semibold tracking-tight md:text-4xl">
-                    Aktywny weekend?
+                    Wynajem Rowerów
                   </h2>
 
                   <p className="mt-2 max-w-[48ch] text-sm text-foreground/70 md:text-base">
-                    Szybkość i swoboda.
+                    Odbierz rower we Wrocławiu.
                   </p>
 
                   <div className="mt-5">

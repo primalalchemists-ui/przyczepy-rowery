@@ -12,7 +12,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 
-
 import type { BookingFormValues } from '@/lib/schemas/bookingSchema'
 import { calcPayableNow } from '@/lib/booking/payable'
 
@@ -65,7 +64,7 @@ function FloatingInput(props: {
   )
 }
 
-function FloatingTextarea(props: { id: string; label: string; error?: string; textareaProps: any }) {
+function FloatingTextarea(props: { id: string; label: string; error?: string; textareaProps: any; rows?: number }) {
   const errorId = `${props.id}-error`
 
   return (
@@ -78,7 +77,8 @@ function FloatingTextarea(props: { id: string; label: string; error?: string; te
         <Textarea
           id={props.id}
           placeholder=" "
-          className="peer min-h-[160px] pt-6 text-base"
+          rows={props.rows}
+          className="peer min-h-[140px] pt-6 text-base"
           aria-invalid={!!props.error}
           aria-describedby={props.error ? errorId : undefined}
           {...props.textareaProps}
@@ -142,6 +142,9 @@ export function CustomerStep(props: {
   const wantsInvoice = props.form.watch('wantsInvoice')
   const invoiceType = props.form.watch('invoiceType')
 
+  // ✅ NEW: typ zasobu do warunkowego pola adresu
+  const resourceType = props.form.watch('resourceType')
+  const isTrailer = resourceType === 'przyczepa'
 
   useEffect(() => {
     if (!wantsInvoice) {
@@ -153,9 +156,19 @@ export function CustomerStep(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantsInvoice])
 
+  // ✅ NEW: jak przełączysz na ebike (albo cokolwiek nie-przyczepa) czyść adres
+  useEffect(() => {
+    if (!isTrailer) {
+      props.form.setValue('deliveryAddress', '', { shouldValidate: true, shouldDirty: true })
+      props.form.setValue('deliveryDetails', '', { shouldValidate: true, shouldDirty: true })
+      props.form.setValue('deliveryGps', '', { shouldValidate: true, shouldDirty: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTrailer])
 
   const acceptRegErrId = 'acceptRegulamin-error'
   const acceptPolErrId = 'acceptPolityka-error'
+  const deliveryErrId = 'deliveryAddress-error'
 
   const regulaminHref = props.regulaminHref ?? '/api/download/regulamin'
   const politykaHref = props.politykaHref ?? '/api/download/polityka'
@@ -194,6 +207,35 @@ export function CustomerStep(props: {
               autoComplete="tel"
             />
 
+            {/* ✅ NEW: Adres podstawienia przyczepy */}
+            {isTrailer ? (
+              <div className="grid gap-3">
+                <FloatingTextarea
+                  id="deliveryAddress"
+                  label="Adres podstawienia przyczepy (wymagany)"
+                  rows={3}
+                  error={(errors as any).deliveryAddress?.message as any}
+                  textareaProps={props.form.register('deliveryAddress')}
+                />
+
+                <FloatingTextarea
+                  id="deliveryDetails"
+                  label="Szczegóły dojazdu / instrukcje (opcjonalnie)"
+                  rows={3}
+                  error={(errors as any).deliveryDetails?.message as any}
+                  textareaProps={props.form.register('deliveryDetails')}
+                />
+
+                <FloatingInput
+                  id="deliveryGps"
+                  label="GPS / link do map (opcjonalnie)"
+                  error={(errors as any).deliveryGps?.message as any}
+                  inputProps={props.form.register('deliveryGps')}
+                  autoComplete="off"
+                />
+              </div>
+            ) : null}
+
             <FloatingTextarea
               id="notes"
               label="Uwagi (opcjonalnie)"
@@ -213,7 +255,7 @@ export function CustomerStep(props: {
               />
             </div>
 
-          {/* ✅ Faktura */}
+            {/* ✅ Faktura */}
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-3 rounded-md border p-3">
                 <p className="text-sm font-medium" id="invoice-label">
@@ -288,7 +330,6 @@ export function CustomerStep(props: {
                 </div>
               ) : null}
             </div>
-
 
             {/* ✅ Regulamin + Polityka */}
             <div className="grid gap-2">

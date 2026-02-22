@@ -367,6 +367,12 @@ export interface Rezerwacje {
     fullName: string;
     email: string;
     phone: string;
+    /**
+     * Wymagane dla przyczepy (jeśli przyczepa jest podstawiana pod adres klienta).
+     */
+    deliveryAddress?: string | null;
+    deliveryDetails?: string | null;
+    deliveryGps?: string | null;
     wantsInvoice?: boolean | null;
     /**
      * Wybierz typ faktury, jeśli zaznaczono „Faktura”.
@@ -708,6 +714,9 @@ export interface RezerwacjeSelect<T extends boolean = true> {
         fullName?: T;
         email?: T;
         phone?: T;
+        deliveryAddress?: T;
+        deliveryDetails?: T;
+        deliveryGps?: T;
         wantsInvoice?: T;
         invoiceType?: T;
         companyName?: T;

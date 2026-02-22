@@ -13,7 +13,7 @@ const steps = [
   },
   {
     title: "Płatność i potwierdzenie",
-    desc: "Opłać rezerwację online i dostaniesz potwierdzenie e-mail.",
+    desc: "Dostaniesz maila z potwierdzeniem i dalszymi instrukcjami",
     icon: CreditCard,
   },
 ]

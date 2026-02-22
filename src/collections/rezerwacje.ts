@@ -3,7 +3,6 @@ import type { CollectionConfig, CollectionBeforeChangeHook, CollectionBeforeVali
 
 type BookingStatus = 'pending_payment' | 'deposit_paid' | 'paid' | 'confirmed' | 'cancelled'
 type ResourceType = 'przyczepa' | 'ebike'
-
 type InvoiceType = 'none' | 'personal' | 'company'
 
 const toDate = (v: unknown): Date | null => {
@@ -81,10 +80,6 @@ const normInvoiceType = (v: unknown): InvoiceType => {
 
 const clean = (v: unknown) => String(v ?? '').trim()
 
-function pad6(n: number) {
-  return String(n).padStart(6, '0')
-}
-
 function randomBase36(len: number) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let out = ''
@@ -110,10 +105,8 @@ async function generateUniqueReservationNumber(req: any) {
     if (!exists?.docs?.length) return candidate
   }
 
-  // ultra fallback (prawie niemożliwe, ale zawsze zwracamy coś)
   return `EA-${year}-${randomBase36(10)}`
 }
-
 
 const beforeValidate: CollectionBeforeValidateHook = async ({ data }) => {
   const start = toDate((data as any)?.startDate)
@@ -132,7 +125,7 @@ const beforeValidate: CollectionBeforeValidateHook = async ({ data }) => {
 const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, originalDoc }) => {
   const status = (((data as any)?.status as BookingStatus | undefined) ?? 'pending_payment') as BookingStatus
 
-    // ====== NUMER REZERWACJI (tylko create) ======
+  // ====== NUMER REZERWACJI (tylko create) ======
   if (operation === 'create' && !(data as any)?.reservationNumber) {
     ;(data as any).reservationNumber = await generateUniqueReservationNumber(req)
   }
@@ -186,10 +179,26 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
     throw new Error(`Minimalna liczba ${resourceType === 'ebike' ? 'dni' : 'nocy'}: ${minUnitsDefault}.`)
   }
 
-  // ====== ✅ DANE KLIENTA: FAKTURA (NOWE) ======
+  // ====== ✅ DANE KLIENTA ======
   const klient = (data as any)?.klient ?? {}
 
-  // Zachowujemy wantsInvoice dla kompatybilności, ale source of truth = invoiceType
+  // ✅ NEW: adres podstawienia przyczepy (wymagany tylko dla przyczepy)
+  const deliveryAddress = clean(klient?.deliveryAddress)
+
+  const deliveryDetails = clean(klient?.deliveryDetails)
+  const deliveryGps = clean(klient?.deliveryGps)
+
+  const nextDeliveryDetails = resourceType === 'przyczepa' ? (deliveryDetails || undefined) : undefined
+  const nextDeliveryGps = resourceType === 'przyczepa' ? (deliveryGps || undefined) : undefined
+
+  if (resourceType === 'przyczepa') {
+    if (!deliveryAddress) throw new Error('Podaj adres podstawienia/dostawy przyczepy.')
+  }
+
+  // dla ebike czyścimy, żeby nie wisiały stare dane
+  const nextDeliveryAddress = resourceType === 'przyczepa' ? deliveryAddress : undefined
+
+  // ====== ✅ FAKTURA ======
   const wantsInvoice = Boolean(klient?.wantsInvoice)
 
   const invoiceType: InvoiceType = (() => {
@@ -202,10 +211,6 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
   const companyAddress = clean(klient?.companyAddress)
   const nipRaw = clean(klient?.nip)
 
-  // Walidacja:
-  // - invoiceType=none => nic nie wymagamy
-  // - invoiceType=personal => nic nie wymagamy
-  // - invoiceType=company => wymagamy 3 pól
   if (invoiceType === 'company') {
     if (!companyName) throw new Error('Podaj nazwę firmy do faktury.')
     if (!companyAddress) throw new Error('Podaj adres siedziby do faktury.')
@@ -215,7 +220,6 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
   const nextInvoiceType = invoiceType
   const nextWantsInvoice = invoiceType !== 'none'
 
-  // jeśli nie company → czyścimy pola firmy, żeby nie wisiały stare wartości
   const nextCompanyName = invoiceType === 'company' ? companyName : undefined
   const nextCompanyAddress = invoiceType === 'company' ? companyAddress : undefined
   const nextNip = invoiceType === 'company' ? nipRaw : undefined
@@ -429,7 +433,6 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
     }
 
     const rowTotal = pricingType === 'perDay' ? unitPrice * addonQty * units * qty : unitPrice * addonQty
-
     extrasTotal += rowTotal
 
     extrasSnapshot.push({
@@ -471,8 +474,11 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
 
     klient: {
       ...klient,
+      deliveryAddress: nextDeliveryAddress,
+      deliveryDetails: nextDeliveryDetails,
+      deliveryGps: nextDeliveryGps,
       wantsInvoice: nextWantsInvoice, // kompatybilność
-      invoiceType: nextInvoiceType,   // nowe
+      invoiceType: nextInvoiceType, // nowe
       companyName: nextCompanyName,
       companyAddress: nextCompanyAddress,
       nip: nextNip,
@@ -491,7 +497,6 @@ const beforeChange: CollectionBeforeChangeHook = async ({ data, req, operation, 
       units,
       unitType,
       basePrice,
-
       breakdown,
       extrasSnapshot,
       serviceFee,
@@ -621,6 +626,20 @@ export const Rezerwacje: CollectionConfig = {
         { name: 'fullName', label: 'Imię i nazwisko', type: 'text', required: true },
         { name: 'email', label: 'E-mail', type: 'email', required: true },
         { name: 'phone', label: 'Telefon', type: 'text', required: true },
+
+        // ✅ NEW: adres podstawienia przyczepy (w adminie widoczny zawsze, ale walidacja w hooku)
+        {
+          name: 'deliveryAddress',
+          label: 'Adres podstawienia/dostawy przyczepy',
+          type: 'textarea',
+          required: false,
+          admin: {
+            description: 'Wymagane dla przyczepy (jeśli przyczepa jest podstawiana pod adres klienta).',
+          },
+        },
+
+        { name: 'deliveryDetails', label: 'Szczegóły dojazdu', type: 'textarea', required: false },
+        { name: 'deliveryGps', label: 'GPS / Link', type: 'text', required: false },
 
         // ✅ zostaje (żeby UI/legacy nie padło)
         { name: 'wantsInvoice', label: 'Faktura', type: 'checkbox', required: false, defaultValue: false },

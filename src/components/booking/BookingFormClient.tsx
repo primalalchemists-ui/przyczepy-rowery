@@ -156,6 +156,12 @@ export function BookingFormClient(props: {
 
       ilosc: 1,
 
+      resourceType: activeType,
+
+      deliveryAddress: '',
+      deliveryDetails: '',
+      deliveryGps: '',
+
       fullName: '',
       email: '',
       phone: '',
@@ -173,6 +179,15 @@ export function BookingFormClient(props: {
     },
     mode: 'onBlur',
   })
+
+  function clearDeliveryFields(opts?: { validate?: boolean; dirty?: boolean }) {
+    const shouldValidate = opts?.validate ?? true
+    const shouldDirty = opts?.dirty ?? true
+
+    form.setValue('deliveryAddress', '', { shouldValidate, shouldDirty })
+    form.setValue('deliveryDetails', '', { shouldValidate, shouldDirty })
+    form.setValue('deliveryGps', '', { shouldValidate, shouldDirty })
+  }
 
   useEffect(() => {
     if (!defaultResourceId) return
@@ -192,6 +207,17 @@ export function BookingFormClient(props: {
 
   const selectedResource = resourceId ? resourcesById.get(resourceId) ?? null : null
   const resourceType = (selectedResource?.typZasobu ?? activeType) as ResourceType
+
+  // ✅ synchronizuj resourceType do form (żeby Zod wiedział co walidować)
+  useEffect(() => {
+    form.setValue('resourceType', resourceType, { shouldValidate: true, shouldDirty: true })
+
+    // jak user przełączy na ebike (albo typ zasobu zmieni się na ebike) -> czyść delivery
+    if (resourceType === 'ebike') {
+      clearDeliveryFields()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resourceType])
 
   const effective = useMemo(() => pickBookingConfig(props.booking, resourceType), [props.booking, resourceType])
 
@@ -332,6 +358,9 @@ export function BookingFormClient(props: {
 
       form.setValue('ilosc', 1, { shouldValidate: true, shouldDirty: true })
 
+      // ✅ czyść delivery przy zmianie zasobu
+      clearDeliveryFields()
+
       setSelectedExtras([])
       setShowClientForm(false)
       setAutoScroll(false)
@@ -352,6 +381,9 @@ export function BookingFormClient(props: {
     form.setValue('startDate', '', { shouldValidate: true, shouldDirty: true })
     form.setValue('endDate', '', { shouldValidate: true, shouldDirty: true })
     form.setValue('ilosc', 1, { shouldValidate: true, shouldDirty: true })
+
+    form.setValue('resourceType', activeType, { shouldValidate: true, shouldDirty: true })
+    clearDeliveryFields()
 
     setSelectedExtras([])
     setShowClientForm(false)
@@ -407,6 +439,10 @@ export function BookingFormClient(props: {
           email: values.email,
           phone: values.phone,
 
+          deliveryAddress: values.deliveryAddress || undefined,
+          deliveryDetails: values.deliveryDetails || undefined,
+          deliveryGps: values.deliveryGps || undefined,
+
           wantsInvoice: Boolean(values.wantsInvoice),
           invoiceType: values.wantsInvoice ? (values.invoiceType ?? undefined) : undefined,
 
@@ -438,11 +474,9 @@ export function BookingFormClient(props: {
         return
       }
 
-      // ✅ ODCZYT NUMERU REZERWACJI (z /api/bookings)
       const createdJson = await res.json().catch(() => null)
       const reservationNumber = createdJson?.reservationNumber as string | undefined
 
-      // label dodatków do maila
       const extrasLabel = selectedExtras
         .map((e) => {
           const addon = availableAddons.find((a) => String(toId(a.id)) === String(e.addonId))
@@ -452,7 +486,6 @@ export function BookingFormClient(props: {
         })
         .join(', ')
 
-      // mail (Resend) – UI nie blokuje się gdy padnie
       const mailRes = await fetch('/api/reservations', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -473,6 +506,10 @@ export function BookingFormClient(props: {
 
           extrasLabel: extrasLabel || undefined,
           notes: values.notes || undefined,
+
+          deliveryAddress: values.deliveryAddress || undefined,
+          deliveryDetails: values.deliveryDetails || undefined,
+          deliveryGps: values.deliveryGps || undefined,
         }),
       })
 
@@ -490,7 +527,6 @@ export function BookingFormClient(props: {
       setForceAvailKey((x) => x + 1)
       router.refresh()
 
-      // ✅ KLUCZ: zachowaj trailerId, żeby efekt "zmiana zasobu" nie wyczyścił submitState
       const keepResourceId = form.getValues('trailerId')
 
       form.reset({
@@ -499,6 +535,11 @@ export function BookingFormClient(props: {
         endDate: '',
 
         ilosc: 1,
+
+        resourceType: resourceType,
+        deliveryAddress: '',
+        deliveryDetails: '',
+        deliveryGps: '',
 
         fullName: '',
         email: '',
@@ -520,7 +561,6 @@ export function BookingFormClient(props: {
       setShowClientForm(false)
       setAutoScroll(false)
 
-      // przewiń do góry żeby user zobaczył komunikat
       formAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }
